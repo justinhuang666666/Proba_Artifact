@@ -128,8 +128,17 @@ void MEMORY_CONTROLLER::operate() {
         }
 
         // Look for queued packets that have not been scheduled
-        auto next_schedule = [](const auto& lhs, const auto& rhs) {
-            return !(rhs.address != 0 && !rhs.scheduled) || ((lhs.address != 0 && !lhs.scheduled) && lhs.event_cycle < rhs.event_cycle);
+        auto next_schedule = [this, &channel](const auto& lhs, const auto& rhs) {
+            if (!(is_valid<PACKET>{}(rhs) && !rhs.scheduled))
+                return true;
+            if (!(is_valid<PACKET>{}(lhs) && !lhs.scheduled))
+                return false;
+
+            auto lop_idx = this->dram_get_rank(lhs.address)*DRAM_BANKS + this->dram_get_bank(lhs.address);
+            auto rop_idx = this->dram_get_rank(rhs.address)*DRAM_BANKS + this->dram_get_bank(rhs.address);
+            auto rready = !channel.bank_request[rop_idx].valid;
+            auto lready = !channel.bank_request[lop_idx].valid;
+            return (rready && lready) ? lhs.event_cycle < rhs.event_cycle : lready;
         };
         std::vector<PACKET>::iterator iter_next_schedule;
         if (channel.write_mode)
