@@ -23,7 +23,7 @@ namespace proba {
 
 #define __region_offset(block_num) (block_num & REGION_OFFSET_MASK)
 
-#define AGT_TYPE custom_util::LRUSetAssociativeCache
+#define AGT_TYPE custom_util::RandomSetAssociativeCache
 #define PHT_TYPE custom_util::LRUSetAssociativeCache
 #define PB_TYPE custom_util::LRUSetAssociativeCache
 

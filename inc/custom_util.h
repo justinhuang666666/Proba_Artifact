@@ -862,6 +862,27 @@ public:
         Super(size, 1) {}
 };
 
+template <class T>
+class RandomSetAssociativeCache : public SetAssociativeCache<T> {
+    typedef SetAssociativeCache<T> Super;
+
+public:
+    RandomSetAssociativeCache(int size, int num_ways, int debug_level = 0)
+        : Super(size, num_ways, debug_level) {}
+
+    /* no promotion needed */
+    void rp_promote(uint64_t key) {}
+
+    /* no insertion policy needed */
+    void rp_insert(uint64_t key) {}
+
+protected:
+    /* @override */
+    int select_victim(uint64_t index) {
+        return std::rand() % this->num_ways;
+    }
+};
+
 /** End Of Cache Framework **/
 
 class ShiftRegister {
