@@ -114,6 +114,10 @@ uint64_t custom_util::my_hash_index(uint64_t key, int index_len, int discard_lsb
     return key;
 }
 
+bool custom_util::is_pow2(uint64_t x) {
+    return x && ((x & (x - 1)) == 0)
+}
+
 /* helper function */
 void custom_util::gen_random(char* s, const int len) {
     static const char alphanum[] =

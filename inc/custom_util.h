@@ -38,6 +38,7 @@ double jaccard_similarity(std::vector<bool> pattern1, std::vector<int> pattern2)
 int pattern_distance(uint64_t p1, uint64_t p2);
 uint64_t hash_index(uint64_t key, int index_len);
 uint64_t my_hash_index(uint64_t key, int index_len, int discard_lsb_len);
+bool is_pow2(uint64_t x)
 void gen_random(char* s, const int len);
 uint32_t folded_xor(uint64_t value, uint32_t num_folds);
 
