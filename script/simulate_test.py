@@ -129,7 +129,7 @@ def run_cmd(cmd, stdout=None, stderr=None, dry_run=False):
 
 
 def run_prefetcher(prefetcher, all_benchmarks, parallelism, dry_run):
-    binary_path = f"./bin/champsim_1core_{prefetcher}"
+    binary_path = f"../bin/champsim_1core_{prefetcher}"
 
     if not os.path.exists(binary_path):
         print(f"Error: {binary_path} not found. Please build first.")
