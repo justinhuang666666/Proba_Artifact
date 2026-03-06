@@ -38,7 +38,7 @@ constexpr int FILL_L2 = 2;
 constexpr int FILL_LLC = 3; 
 
 /* PC+Address matches are filled into L1 */
-const int PC_ADDRESS_FILL_LEVEL = FILL_L1;
+const int PC_ADDRESS_FILL_LEVEL = FILL_L2;
 
 #define __region_offset(block_num) (block_num & REGION_OFFSET_MASK)
 
@@ -354,9 +354,9 @@ public:
                     uint64_t pf_address = (region_number * this->pattern_len + pf_offset) << LOG2_BLOCK_SIZE;
                     if (cache->get_occupancy(3, 0) + cache->get_occupancy(0, 0) < cache->get_size(0, 0) - 1 && cache->get_occupancy(3, 0) < cache->get_size(3, 0)) {
                         uint32_t pf_metadata = 0;
-                        pf_metadata = __add_pf_sour_level(pf_metadata, 1);
-                        pf_metadata = __add_pf_dest_level(pf_metadata, 1);
-                        int ok = cache->prefetch_line(0, base_addr, pf_address, pattern[pf_offset] == FILL_L1, pf_metadata);
+                        pf_metadata = __add_pf_sour_level(pf_metadata, 2);
+                        pf_metadata = __add_pf_dest_level(pf_metadata, 2);
+                        int ok = cache->prefetch_line(0, base_addr, pf_address, pattern[pf_offset] == FILL_L2, pf_metadata);
                         // assert(ok == 1);
                         pf_issued += 1;
                         pattern[pf_offset] = 0;
