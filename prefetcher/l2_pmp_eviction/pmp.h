@@ -347,13 +347,13 @@ public:
                     // MSHR + PQ < MSHR - 1 && PQ is not full
                     if (cache->get_occupancy(3, 0) + cache->get_occupancy(0, 0) < cache->get_size(0, 0) - 1 && cache->get_occupancy(3, 0) < cache->get_size(3, 0)) {
                         uint32_t pf_metadata = 0;
-                        pf_metadata = __add_pf_sour_level(pf_metadata, 1);
-                        if (pattern[pf_offset] == 1) { // FILL_L1_PMP = 1
-                            pf_metadata = __add_pf_dest_level(pf_metadata, 1);
-                        } else {
+                        pf_metadata = __add_pf_sour_level(pf_metadata, 2);
+                        if (pattern[pf_offset] == 2) { // FILL_L2_PMP = 2
                             pf_metadata = __add_pf_dest_level(pf_metadata, 2);
+                        } else {
+                            pf_metadata = __add_pf_dest_level(pf_metadata, 3);
                         }
-                        int ok = cache->prefetch_line(0, base_addr, pf_address, pattern[pf_offset] == 1 ? true : false, pf_metadata);
+                        int ok = cache->prefetch_line(0, base_addr, pf_address, pattern[pf_offset] == 2 ? true : false, pf_metadata);
                         pf_issued += ok;
                         if (ok && !cache->warmup) {
                             if (pattern[pf_offset] == 1) {
@@ -437,13 +437,13 @@ private:
     void insert_in_opt(const AccumulationTable::Entry& entry);
     std::vector<int> vote(const std::vector<OffsetPatternTableData>& x, bool is_pc_opt = false);
 
-    const double L1D_THRESH = 0.50;
-    const double L2C_THRESH = 0.150;
-    const double LLC_THRESH = 1; /* off */
+    const double L1D_THRESH = 2.0; /* off */
+    const double L2C_THRESH = 0.50;
+    const double LLC_THRESH = 0.150; 
 
-    const double PC_L1D_THRESH = 0.50;
-    const double PC_L2C_THRESH = 0.150;
-    const double PC_LLC_THRESH = 1; /* off */
+    const double PC_L1D_THRESH = 2.0; /* off */
+    const double PC_L2C_THRESH = 0.50;
+    const double PC_LLC_THRESH = 0.150; 
 
     /*======================*/
 
