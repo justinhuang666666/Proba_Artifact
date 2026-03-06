@@ -25,6 +25,9 @@ void CACHE::prefetcher_initialize() {
 
 uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint32_t metadata_in) {
     /* call prefetcher and send prefetches */
+    if (type != LOAD)
+        return metadata_in;
+
     uint64_t block_number = addr >> LOG2_BLOCK_SIZE;
 
     prefetchers[cpu].access(block_number, ip);

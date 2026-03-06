@@ -545,6 +545,9 @@ void CACHE::prefetcher_initialize() {
 }
 
 uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint32_t metadata_in) {
+    if (type != LOAD && type != PREFETCH)
+        return metadata_in;
+        
     uint64_t line_addr = (addr >> LOG2_BLOCK_SIZE); 
     uint64_t region_num = (addr >> LOG2_PAGE_SIZE);
     int offset = line_addr % proba::NUM_BLOCKS;

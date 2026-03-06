@@ -60,8 +60,8 @@ public:
                     uint64_t pf_address = (region_number * this->pattern_len + pf_offset) << LOG2_BLOCK_SIZE;
                     if (cache->get_occupancy(3, 0) + cache->get_occupancy(0, 0) < cache->get_size(0, 0) - 1 && cache->get_occupancy(3, 0) < cache->get_size(3, 0)) {
                         uint32_t pf_metadata = 0;
-                        pf_metadata = __add_pf_sour_level(pf_metadata, 1);
-                        pf_metadata = __add_pf_dest_level(pf_metadata, 1);
+                        pf_metadata = __add_pf_sour_level(pf_metadata, 2);
+                        pf_metadata = __add_pf_dest_level(pf_metadata, 2);
                         int ok = cache->prefetch_line(0, base_addr, pf_address, true, pf_metadata);
                         // assert(ok == 1);
                         pf_issued += 1;
