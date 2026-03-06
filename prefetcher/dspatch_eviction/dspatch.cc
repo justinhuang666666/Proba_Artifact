@@ -507,8 +507,7 @@ uint32_t CACHE::prefetcher_cache_fill(uint64_t addr, uint32_t set, uint32_t way,
     uint64_t evicted_block_num = evicted_addr >> LOG2_BLOCK_SIZE;
 
     for (int i = 0; i < NUM_CPUS; i += 1) {
-        if (!block[set * NUM_WAY + way].prefetch)
-            prefetchers[i].eviction(evicted_block_num);
+        prefetchers[i].eviction(evicted_block_num);
     }
 
     return metadata_in;

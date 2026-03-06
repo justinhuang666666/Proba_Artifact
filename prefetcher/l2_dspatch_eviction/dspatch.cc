@@ -487,7 +487,7 @@ uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cac
     /* call prefetcher and send prefetches */
     if (type != LOAD && type != PREFETCH)
         return metadata_in;
-        
+
     uint64_t block_number = addr >> LOG2_BLOCK_SIZE;
     vector<uint64_t> pref_addr; // not used
     prefetchers[cpu].invoke_prefetcher(ip, addr, cache_hit, type, pref_addr);
@@ -507,8 +507,7 @@ uint32_t CACHE::prefetcher_cache_fill(uint64_t addr, uint32_t set, uint32_t way,
     uint64_t evicted_block_num = evicted_addr >> LOG2_BLOCK_SIZE;
 
     for (int i = 0; i < NUM_CPUS; i += 1) {
-        if (!block[set * NUM_WAY + way].prefetch)
-            prefetchers[i].eviction(evicted_block_num);
+        prefetchers[i].eviction(evicted_block_num);
     }
 
     return metadata_in;
