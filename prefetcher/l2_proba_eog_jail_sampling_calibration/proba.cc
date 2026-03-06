@@ -3,7 +3,6 @@
 
 #include <assert.h>
 
-
 /*
  * Proba: Spatial Memory Streaming with Probabilistic Updates
  *

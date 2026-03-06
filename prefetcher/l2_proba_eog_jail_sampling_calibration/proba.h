@@ -1,7 +1,6 @@
 #ifndef PROBA_H
 #define PROBA_H
 
-
 /*
  * Proba: Spatial Memory Streaming with Probabilistic Updates
  *
