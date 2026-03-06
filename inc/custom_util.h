@@ -439,6 +439,17 @@ public:
         return old_entry;
     }
 
+
+    void update(uint64_t key, const T& data) {
+        Entry* entry = this->find(key);
+        assert(entry != nullptr && "update_entry: key not found");
+
+        const uint64_t index = key & ((static_cast<uint64_t>(1) << this->index_len) - 1);
+        const uint64_t tag   = key >> this->index_len;
+
+        *entry = {key, index, tag, true, data};
+    }
+
     Entry* find(uint64_t key) {
         uint64_t index = key & ((1 << this->index_len) - 1);
         uint64_t tag = key >> this->index_len;
@@ -451,6 +462,17 @@ public:
         if (!entry.valid)
             return nullptr;
         return &entry;
+    }
+
+    int get_num_valid_entries_per_set(uint64_t key) {
+        const uint64_t index = key & ((1 << this->index_len) - 1);
+
+        int count = 0;
+        for (const auto& entry : this->entries[index]) {
+            if (entry.valid)
+                ++count;
+        }
+        return count;
     }
 
     void flush() {
