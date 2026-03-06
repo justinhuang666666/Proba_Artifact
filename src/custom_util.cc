@@ -115,7 +115,7 @@ uint64_t custom_util::my_hash_index(uint64_t key, int index_len, int discard_lsb
 }
 
 bool custom_util::is_pow2(uint64_t x) {
-    return x && ((x & (x - 1)) == 0)
+    return x && ((x & (x - 1)) == 0);
 }
 
 /* helper function */
