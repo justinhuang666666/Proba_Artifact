@@ -14,10 +14,10 @@ from _GAP_def import GAP_shortcode, gap_ones
 from _GAP_WEIGHTS import GAP_SHORTCODE_WEIGHTS
 
 # --- CONFIGURABLE ---
-LOG_DIR = 'results'
+LOG_DIR = os.path.join('results', 'json') 
 GRAPH_DIR = 'graphs'
 OUTPUT = "png"  # Use PNG for PowerPoint compatibility
-PLOT_NAME = 'misc'
+PLOT_NAME = 'proba'
 
 PRINT_BENCH_STATS = False
 
@@ -31,7 +31,7 @@ IPC_MEAN_TYPE = 'harmonic'
 # 'SPEC2006' - SPEC2006 benchmarks  
 # 'SPEC_ALL' - All SPEC benchmarks
 # 'GAP' - GAP graph benchmarks
-BENCHMARK_TYPE = 'SPEC2006'  # Change to 'GAP' for GAP benchmarks
+BENCHMARK_TYPE = 'SPEC_ALL'  # Change to 'GAP' for GAP benchmarks
 
 # Select benchmarks based on type
 if BENCHMARK_TYPE == 'GAP':
@@ -51,13 +51,6 @@ else:  # Default to SPEC2017
     BENCHMARK_WEIGHTS = SPEC2017_SHORTCODE_WEIGHTS
     BENCHMARK_SHORTCODE = SPEC2017_shortcode
 
-# BENCHMARKS = ['cactusADM436', 'bzip2401', 'mcf605', 'gcc602', 'xalancbmk623', 'xz657',  'cactuBSSN607', 'omnetpp620']    
-
-# BENCHMARKS = memint2017_ones
-# BENCHMARKS = spec2017_ones
-# BENCHMARKS = spec2006_ones
-# BENCHMARKS = list(SPEC2017_shortcode.keys())
-
 # Filter out problematic benchmarks (only for SPEC)
 if BENCHMARK_TYPE != 'GAP':
     BENCHMARKS = [bm for bm in BENCHMARKS if bm != 'milc433']
@@ -65,73 +58,11 @@ if BENCHMARK_TYPE != 'GAP':
     BENCHMARKS = [bm for bm in BENCHMARKS if bm != 'gromacs435']
     BENCHMARKS = [bm for bm in BENCHMARKS if bm != 'exchange2648']
 
-BASELINE = 'no-no'
+BASELINE = 'no'
 
 # ABLATION STUDY
-# PREFETCHERS = ['no-bop', 'no-caerus-single', 'no-caerus-8', 'no-caerus-8-no_overlap', 'no-caerus-8-acc', 'no-caerus-single-acc', 'no-caerus-8-acc-overlap']
-
-# L2 Accuracy (33%, 50%, 66%)
-# PREFETCHERS = ['no-bop', 'berti-no', 'mlop-no', 'no-caerus-831', 'no-caerus-821', 'no-caerus_old', 'no-caerus-812-counter']
-
-# L1 Accuracy (33%, 50%, 66%)
-# PREFETCHERS = ['no-bop', 'berti-no', 'mlop-no', 'caerus-no-821', 'caerus_old-no', 'caerus-no-812']
-
-# Also look at Holding Table 
-# PREFETCHERS = ['no-bop', 'berti-no', 'mlop-no', 'no-caerus-821', 'no-caerus-821-checkholding']
-
-# Training Params 
-# PREFETCHERS = ['no-bop', 'berti-no', 'mlop-no', 'no-caerus-821', 'no-caerus-821-rM156sM31', 'no-caerus-821-rM156sM26', 'no-caerus-821-rM50sM26']
-
-# Timeliness Tradeoff 
-# PREFETCHERS = ['no-bop', 'berti-no', 'mlop-no', 'no-caerus-821', 'no-caerus_timely-821', 'no-caerus_timely_highN-821', 'no-caerus_timely-train8']
-
-# Nova
-# PREFETCHERS = ['no-bop', 'berti-no', 'mlop-no', 'no-caerus_timely-821', 'no-caerus_nova', 'no-caerus_nova-sam', 'no-caerus_nova-sam-newht', 'caerus_nova-no-sam']
-# PREFETCHERS = ['no-bop', 'berti-no', 'mlop-no', 'caerus_nova-no_8offsets', 'caerus_nova-no_16offsets', 'caerus_nova-no_20offsets', 'caerus_nova-no_36offsets'] 
-
-# PREFETCHERS = ['no-bop', 'berti-no', 'mlop-no', 'caerus-no', 'caerus_nova-no_24score_100round_10badscore', 'caerus_nova-no_24score_500round_5badscore', 'caerus_nova-no_12score_500round_10badscore', 'caerus_nova-no_24score_500round_16badscore', 'caerus_nova-no_100score_500round_10badscore', 'caerus_nova-no_50score_500round_10badscore','caerus_nova-no_24score_800round_10badscore'] 
-
-# PREFETCHERS = ['ablation_1offset', 'ablation_20offsets', 'ablation_prev_overlap', 'caerus-no']
-
-
-# PREFETCHERS = ['berti-bop', 'caerus-caerus_L2', 'berti-caerus_L2', 'caerus-no'] 
-
-
-# PREFETCHERS = ['caerus_nova-no_821', 'caerus_nova-no_811', 'caerus_nova-no_812', 'caerus_nova-no_1021', 'caerus_nova-no_1023', 'caerus_nova-no_1011', 'caerus_nova-no_1012']
-
-# Misc 
-PREFETCHERS = ['ip_stride-no', 'bop-no', 'chimera-no', 'mlop-no', 'berti-no', 'caerus-no', 'caerus_marginal-no'] 
-# PREFETCHERS = ['ip_stride-no', 'bop-no', 'mlop-no', 'chimera-no', 'berti-no', 'caerus-no']
-# PREFETCHERS = ['caerus-no_32rr_16entries', 'caerus-no_32rr_8entries']
-
-# PREFETCHERS = ['ip_stride-no', 'mlop-no', 'berti-no']
-
-# BASELINE = 'no-no-1600'
-# PREFETCHERS = ['mlop-no-1600', 'berti-no-1600', 'caerus-no-1600']
-
-# BASELINE = 'no-no-6400'
-# PREFETCHERS = ['mlop-no-6400', 'berti-no-6400', 'caerus-no-6400']
-
-# PREFETCHERS = ['bop-no', 'ablation_1offset', 'ablation_20offsets', 'ablation_acctrack']
-
-# PREFETCHERS = ['caerus-no-21', 'caerus-no-12']
-
-# PREFETCHERS = ['caerus-no', 'caerus_overlap-no_20offsets','caerus_overlap-no_20offsets_noacc', 'ablation_1offset', 'bop-no'] 
-# PREFETCHERS = ['bop-no', 'ablation_1offset', 'caerus_overlap-no_20offsets_noacc', 'caerus_overlap-no_20offsets', 'caerus-no-full']
-
-# PREFETCHERS = [ 'caerus-no_12offsets', 'caerus_overlap-no_12offsets', 'caerus_nova-no_8offsets', 'caerus_overlap-no_8offsets']
-
-# BASELINE = 'no-no-new'
-
-# PREFETCHERS = ['mlop-no-new', 'berti-no-new', 'caerus-no-new']
-
-
-# BASELINE = 'ip_stride-no'
-# PREFETCHERS = ['ip_stride-bop', 'berti_stride-no', 'mlop_stride-no','ip_stride-caerus', 'ip_stride-caerus_old','ip_stride-caerus_old_8', 'ip_stride-caerus_old_8bad', 'ip_stride-caerus_old_8retrain']
-# PREFETCHERS = ['ip_stride-bop', 'berti_stride-no', 'mlop_stride-no','ip_stride-caerus', 'ip_stride-caerus_old', 'ip_stride-caerus_old_bad', 'ip_stride-caerus_old_bad1']
-# PREFETCHERS = ['ip_stride-bop', 'berti_stride-no', 'mlop_stride-no','ip_stride-caerus_old', 'caerus_stride-no', 'berti_stride-caerus_old']
-# PREFETCHERS = ['ip_stride-bop', 'berti_stride-no', 'mlop_stride-no', 'caerus_stride-no']
-
+PREFETCHERS = ['l2_sms_eviction', 'l2_bingo_eviction', 'l2_dspatch_eviction', 'l2_pmp_eviction', 'l2_gaze_eviction', 'l2_proba_eog_jail_sampling','l2_proba_eog_jail_sampling_calibration']
+# PREFETCHERS = ['l2_sms_eviction', 'l2_bingo_eviction', 'l2_dspatch_eviction', 'l2_gaze_eviction', 'l2_proba_eog_jail_sampling','l2_proba_eog_jail_sampling_calibration']
 if BASELINE not in PREFETCHERS:
     PREFETCHERS.append(BASELINE)
 
@@ -164,69 +95,100 @@ blues = ['#cccccc', '#348ABD', '#467821', '#D55E00','#7A68A6', '#A60628', '#CC79
 
 # reds = ['#F8B6B6', '#E57373', '#B53636', '#A60628']
 
+def load_json_obj(file_path):
+    """
+    Load a JSON file. Supports:
+      - a normal JSON object
+      - a normal JSON array
+      - a file with extra text around the JSON payload
+    """
+    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+        content = f.read().strip()
+
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        # Fallback 1: array embedded in text
+        begin = content.find('[')
+        end = content.rfind(']') + 1
+        if begin != -1 and end > begin:
+            return json.loads(content[begin:end])
+
+        # Fallback 2: object embedded in text
+        begin = content.find('{')
+        end = content.rfind('}') + 1
+        if begin != -1 and end > begin:
+            return json.loads(content[begin:end])
+
+        raise
+
+
+def get_roi(file_path):
+    json_obj = load_json_obj(file_path)
+
+    # Reference code uses json_obj[0]['roi']
+    if isinstance(json_obj, list):
+        json_obj = json_obj[0]
+
+    return json_obj.get('roi', {})
+
 # --- PARSING FUNCTIONS ---
 
 def _determine_cpu_str(path):
     parts = path.split(os.sep)
 
-    # Extract the prefetcher directory that immediately follows LOG_DIR
     prefetcher_dir = None
-    if LOG_DIR in parts:
-        idx = parts.index(LOG_DIR)
+    if 'json' in parts:
+        idx = parts.index('json')
         if idx + 1 < len(parts):
             prefetcher_dir = parts[idx + 1]
 
     if not prefetcher_dir:
-        return 'cpu0_L2C'  # Fallback to L2C if we cannot infer correctly
+        return 'cpu0_L2C'
 
-    # If it's the double-"no" baseline, skip this entry entirely
-    if prefetcher_dir == 'no-no':
+    if prefetcher_dir == 'no-no' or prefetcher_dir == 'no':
         return None
 
-    # Split into L1 / L2 components if possible
     comps = prefetcher_dir.split('-')
     if len(comps) >= 2:
         l1_pref, l2_pref = comps[0], comps[1]
-        # Check if components start with 'no' (e.g., 'no', 'no_1011', etc.)
         l2_is_no = l2_pref.startswith('no')
         l1_is_no = l1_pref.startswith('no')
-        
+
         if not l2_is_no:
             return 'cpu0_L2C'
         elif not l1_is_no:
             return 'cpu0_L1D'
         else:
-            return None  # Both are "no"
+            return None
     else:
-        # Single component – assume L2C prefetcher
-        return 'cpu0_L1D'
+        # Single component prefetcher names like l2_bingo_eviction
+        return 'cpu0_L2C'
 
 def parse_ipc_from_file(filepath):
-    in_roi_section = False
-    with open(filepath) as f:
-        for line in f:
-            line = line.strip()
-            if "Region of Interest Statistics" in line:
-                in_roi_section = True
-            elif in_roi_section and line.startswith("CPU 0 cumulative IPC:"):
-                parts = line.split()
-                try:
-                    return float(parts[4]) 
-                except (IndexError, ValueError):
-                    continue
-    return None
+    roi = get_roi(filepath)
+
+    try:
+        instructions = roi['cores'][0]['instructions']
+        cycles = roi['cores'][0]['cycles']
+        if cycles == 0:
+            return None
+
+        return instructions / cycles
+    except (KeyError, IndexError, TypeError, ZeroDivisionError):
+        return None
 
 def parse_dram_from_file(filepath):
-    with open(filepath) as f:
-        for line in f:
-            line = line.strip()
-            if line.startswith("LLC TOTAL"):
-                parts = line.split()
-                try:
-                    return float(parts[7]) 
-                except (IndexError, ValueError):
-                    continue
-    return None
+    roi = get_roi(filepath)
+    try:
+        dram_read_hit = roi['DRAM'][0]['RQ ROW_BUFFER_HIT']
+        dram_read_miss = roi['DRAM'][0]['RQ ROW_BUFFER_MISS']
+        dram_write_hit = roi['DRAM'][0]['WQ ROW_BUFFER_HIT']
+        dram_write_miss = roi['DRAM'][0]['WQ ROW_BUFFER_MISS']
+        return dram_read_hit + dram_read_miss + dram_write_hit + dram_write_miss
+    except (KeyError, IndexError, TypeError, ValueError):
+        return None
+
 
 def parse_cov_from_file(filepath):
     # Determine which cache level to use based on prefetcher configuration in the path
@@ -237,26 +199,32 @@ def parse_cov_from_file(filepath):
     if cpu_str is None:
         return None
 
-    in_roi_section = False
-    useful = None
-    demand_misses = None
-    
-    with open(filepath) as f:
-        for line in f:
-            line = line.strip()
-            if "Region of Interest Statistics" in line:
-                in_roi_section = True
-            elif in_roi_section and f"{cpu_str} PREFETCH REQUESTED:" in line:
-                parts = line.split()
-                useful = float(parts[7])  # USEFUL value
-            elif in_roi_section and f"{cpu_str} LOAD" in line:
-                parts = line.split()
-                demand_misses = float(parts[7])  # MISS value
-    
-    if useful is not None and demand_misses is not None:
-        return useful, demand_misses
-    
-    return None
+    roi = get_roi(filepath)
+
+    try:
+        if cpu_str == 'cpu0_L1D':
+            useful = roi[cpu_str]['prefetch useful']
+            demand_misses = roi[cpu_str]['LOAD']['miss']
+
+        elif cpu_str == 'cpu0_L2C':
+            # Match reference code first if present, otherwise fall back
+            useful = roi[cpu_str]['prefetch useful']
+            demand_misses = roi[cpu_str]['LOAD']['miss']
+
+        elif cpu_str == 'LLC':
+            useful = roi[cpu_str].get('prefetch useful')
+            demand_misses = roi[cpu_str]['LOAD']['miss']
+
+        else:
+            return None
+
+        if useful is None or demand_misses is None:
+            return None
+
+        return float(useful), float(demand_misses)
+
+    except (KeyError, IndexError, TypeError, ValueError):
+        return None
 
 def parse_acc_from_file(filepath):
     # Re-use the same helper logic as in parse_cov_from_file
@@ -266,48 +234,96 @@ def parse_acc_from_file(filepath):
     if cpu_str is None:
         return None
 
-    in_roi_section = False
-    with open(filepath) as f:
-        for line in f:
-            line = line.strip()
-            if "Region of Interest Statistics" in line:
-                in_roi_section = True
-            elif in_roi_section and f"{cpu_str} PREFETCH REQUESTED:" in line:
-                parts = line.split()
-                return float(parts[7]), float(parts[9])  # USEFUL, USELESS
-        
-    return None
+    roi = get_roi(filepath)
+
+    try:
+        if cpu_str == 'cpu0_L1D':
+            useful = roi[cpu_str]['prefetch useful']
+            useless = roi[cpu_str]['prefetch useless']
+
+        elif cpu_str == 'cpu0_L2C':
+            useful = roi[cpu_str]['prefetch useful']
+            useless = roi[cpu_str]['prefetch useless']
+
+        elif cpu_str == 'LLC':
+            useful = roi[cpu_str]['prefetch useful']
+            useless = roi[cpu_str]['prefetch useless']
+
+        else:
+            return None
+
+        if useful is None or useless is None:
+            return None
+
+        return float(useful), float(useless)
+
+    except (KeyError, IndexError, TypeError, ValueError):
+        return None
 
 # --- DATA GATHERING FUNCTIONS ---
-def gather_data(parse_func, metric_name):
-    """Generic function to gather data using the specified parsing function"""
-    data = defaultdict(dict)
+# def gather_data(parse_func, metric_name):
+#     """Generic function to gather data using the specified parsing function"""
+#     data = defaultdict(dict)
     
+#     for benchmark in BENCHMARKS:
+#         for prefetcher in PREFETCHERS:
+#             path = os.path.join(LOG_DIR, prefetcher, benchmark)
+#             if not os.path.isdir(path):
+#                 print(f"Missing directory: {path}")
+#                 continue
+
+#             for filename in os.listdir(path):
+#                 if filename.endswith('.txt'):
+#                     simpoint = filename.replace('.txt', '')
+#                     # Quick and dirty hack, sorry Jacob :(
+#                     if re.match(r'^\d+\.', simpoint):
+#                         simpoint = simpoint[len(re.match(r'^\d+\.', simpoint).group(0)):]
+#                     filepath = os.path.join(path, filename)
+#                     result = parse_func(filepath)
+#                     if result is not None:
+#                         label = f"{benchmark}/{simpoint}"
+#                         # Standardize prefetcher names for display
+#                         display_name = prefetcher
+#                         if prefetcher == 'bop':
+#                             display_name = 'BOP'
+#                         elif prefetcher == 'berti_stride':
+#                             display_name = 'Berti'
+#                         data[display_name][label] = result
+    
+#     return data
+
+def gather_data(parse_func, metric_name):
+    data = defaultdict(dict)
+
     for benchmark in BENCHMARKS:
         for prefetcher in PREFETCHERS:
-            path = os.path.join(LOG_DIR, prefetcher, benchmark)
+            path = os.path.join(LOG_DIR, prefetcher, benchmark)   # now results/json/...
+
             if not os.path.isdir(path):
                 print(f"Missing directory: {path}")
                 continue
 
             for filename in os.listdir(path):
-                if filename.endswith('.txt'):
-                    simpoint = filename.replace('.txt', '')
-                    # Quick and dirty hack, sorry Jacob :(
+                if filename.endswith('.json'):   # FIXED
+                    simpoint = filename.replace('.json', '')
+
                     if re.match(r'^\d+\.', simpoint):
                         simpoint = simpoint[len(re.match(r'^\d+\.', simpoint).group(0)):]
+
                     filepath = os.path.join(path, filename)
                     result = parse_func(filepath)
+
                     if result is not None:
                         label = f"{benchmark}/{simpoint}"
-                        # Standardize prefetcher names for display
+
                         display_name = prefetcher
                         if prefetcher == 'bop':
                             display_name = 'BOP'
                         elif prefetcher == 'berti_stride':
                             display_name = 'Berti'
+
                         data[display_name][label] = result
-    
+
     return data
 
 # --- COMPUTE WEIGHTED MEANS ---
@@ -452,8 +468,6 @@ def compute_geomean_speedups(data, metric_type, baseline_name=None):
                     cov_data = data[prefetcher].get(label)
                     if cov_data:
                         useful, demand_misses = cov_data
-                        if useful == 0:
-                            continue  # Skip simpoints with no prefetches
                         coverage = useful / (useful + demand_misses)
                         weight = weight_map[sp]
                         values.append(coverage)
@@ -933,7 +947,7 @@ def main():
                 f'{PLOT_NAME}_dram.{OUTPUT}', include_geomean=INCLUDE_GEOMEAN, include_baseline=True, ylim_bottom=0.9, only_geomean_bar=ONLY_GEOMEAN_BAR, only_geomean_line=ONLY_GEOMEAN_LINE, legend_position='top')
     
     print("Creating coverage plot...")
-    create_plot(cov_speedups, cov_plot_prefetchers, 'coverage', 'L1D Coverage', 
+    create_plot(cov_speedups, cov_plot_prefetchers, 'coverage', 'L2C Coverage', 
                 f'{PLOT_NAME}_coverage.{OUTPUT}', include_geomean=INCLUDE_GEOMEAN, include_baseline=False, 
                 ylim_bottom=0.0, only_geomean_bar=ONLY_GEOMEAN_BAR, legend_position='top')
     

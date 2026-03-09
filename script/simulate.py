@@ -1,22 +1,31 @@
-#!/bin/python3
+#!/usr/bin/env python3
 
 # Launch ChampSim simulations locally on a single server
-# Update config -> Build ChampSim -> Execute locally -> Store results
 
 import argparse
-import sys
 import os
 import subprocess
-import json
-import time
+import sys
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from _SPEC2017_def import SPEC2017_shortcode, SPEC2017_path
 
-# Define the warmup and instructions to run
 WARMUP_INSTRUCTIONS = 50000000
 SIMULATION_INSTRUCTIONS = 200000000
+
+PREFETCHERS = [
+    "no",
+    "l2_sms_eviction",
+    "l2_bingo_eviction",
+    "l2_dspatch_eviction",
+    "l2_pmp_eviction",
+    "l2_gaze_eviction",
+    "l2_proba_eviction",
+    "l2_proba_eog_jail_sampling",
+    "l2_proba_eog_jail_sampling_calibration",
+]
 
 
 def parse_args():
@@ -29,46 +38,18 @@ def parse_args():
         "--benchmark",
         type=str,
         required=True,
-        help='Benchmark to run (use "SPEC_ALL", "SPEC_2017", "SPEC_2006", or part of a benchmark name)',
-    )
-    parser.add_argument(
-        "--name",
-        type=str,
-        required=False,
-        help="Directory name to store the result",
-    )
-    parser.add_argument(
-        "--config",
-        type=str,
-        required=False,
-        help="Configuration file",
-    )
-    parser.add_argument(
-        "--clean",
-        action="store_true",
-        required=False,
-        help="Clean the build before make",
-    )
-    parser.add_argument(
-        "--run",
-        action="store_true",
-        required=False,
-        help="Skip configuration and build process",
+        help='Benchmark to run ("SPEC_ALL", "SPEC_2017", "SPEC_2006", or part of a benchmark name)',
     )
     parser.add_argument(
         "--parallelism",
-        "--max-cpu",
-        dest="parallelism",
         type=int,
         default=default_parallelism,
-        required=False,
         help=f"Maximum number of concurrent local simulations (default: {default_parallelism})",
     )
     parser.add_argument(
-        "--script",
+        "--dry-run",
         action="store_true",
-        required=False,
-        help="Run in script mode without confirmation prompt",
+        help="Print commands without actually running them",
     )
     return parser.parse_args()
 
@@ -121,100 +102,66 @@ def get_matching_benchmarks(benchmark_arg):
 
 def get_trace_output_name(trace_path):
     trace_file = os.path.basename(trace_path)
+
+    if trace_file.endswith(".xz"):
+        trace_file = trace_file[:-3]
+    elif trace_file.endswith(".gz"):
+        trace_file = trace_file[:-3]
+
     parts = trace_file.split(".")
     if len(parts) > 1:
         return parts[1]
     return os.path.splitext(trace_file)[0]
 
 
-def run_cmd(cmd):
-    print(cmd)
-    # return subprocess.run(cmd)
+def build_benchmark_list(matching_benchmarks):
+    all_benchmarks = []
+    for category, benchmarks in matching_benchmarks.items():
+        for benchmark in benchmarks:
+            all_benchmarks.append((benchmark, category))
+    return all_benchmarks
 
 
-def run_or_exit(cmd, fail_msg):
-    result = run_cmd(cmd)
-    if result.returncode != 0:
-        print(fail_msg)
-        sys.exit(1)
+def run_cmd(cmd, stdout=None, stderr=None, dry_run=False):
+    print("CMD:", " ".join(cmd))
+    if dry_run:
+        return subprocess.CompletedProcess(cmd, 0)
+    return subprocess.run(cmd, stdout=stdout, stderr=stderr, check=False)
 
 
-def main():
-    args = parse_args()
+def run_prefetcher(prefetcher, all_benchmarks, parallelism, dry_run):
+    binary_path = f"../bin/champsim_1core_{prefetcher}"
 
-    if args.parallelism <= 0:
-        print("--parallelism must be >= 1")
-        sys.exit(1)
+    if not os.path.exists(binary_path):
+        print(f"Error: {binary_path} not found. Please build first.")
+        return 1
 
-    matching_benchmarks = get_matching_benchmarks(args.benchmark)
+    categories = {category for _, category in all_benchmarks}
+    for category in categories:
+        os.makedirs(f"results/log/{prefetcher}/{category}", exist_ok=True)
+        os.makedirs(f"results/json/{prefetcher}/{category}", exist_ok=True)
 
-    config_path = args.config if args.config else "champsim_config.json"
-    if not os.path.exists(config_path):
-        print(f"Configuration file not found: {config_path}")
-        sys.exit(1)
+    total_simulations = len(all_benchmarks)
+    if total_simulations == 0:
+        print(f"No benchmarks to run for {prefetcher}")
+        return 0
 
-    with open(config_path) as config_file:
-        config = json.load(config_file)
-
-    dir_name = config["L1D"]["prefetcher"] + "-" + config["L2C"]["prefetcher"]
-    prefetcher = args.name if args.name else dir_name
-    binary_path = "./bin/champsim"
-
-    if not args.run:
-        print("======================")
-        print("Updating Configuration")
-        print("======================")
-        run_or_exit(["./config.sh", config_path], "Configuration failed")
-
-        with open(config_path) as config_file:
-            config = json.load(config_file)
-            prefetcher_l1 = config["L1D"]["prefetcher"]
-            prefetcher_l2 = config["L2C"]["prefetcher"]
-
-        print("**********************")
-        print(f"L1D : {prefetcher_l1}")
-        print(f"L2C : {prefetcher_l2}")
-        print(f"Name: {prefetcher}")
-        print("**********************")
-
-        if not args.script:
-            confirm = input("Continue? [Y/n]: ")
-            if not (confirm.lower() in ["y", "yes"] or confirm == ""):
-                sys.exit(0)
-
-        print("=================")
-        print("Building ChampSim")
-        print("=================")
-        if args.clean:
-            run_or_exit(["make", "clean"], "Clean failed")
-        run_or_exit(["make"], "Build failed")
-
-    else:
-        if not os.path.exists(binary_path):
-            print("Error: No existing binary found. Please build first or run without --run.")
-            sys.exit(1)
+    actual_parallelism = min(parallelism, total_simulations)
 
     print("==================")
     print("Running Simulation")
     print("==================")
-
-    all_benchmarks = []
-    for category, benchmarks in matching_benchmarks.items():
-        os.makedirs(f"results/{prefetcher}/{category}", exist_ok=True)
-        for benchmark in benchmarks:
-            all_benchmarks.append((benchmark, category))
-
-    total_simulations = len(all_benchmarks)
-    parallelism = min(args.parallelism, total_simulations) if total_simulations > 0 else 1
-
     print("Configuration Summary:")
-    print(f"  Prefetcher Directory: {prefetcher}")
+    print(f"  Prefetcher: {prefetcher}")
+    print(f"  Binary: {binary_path}")
     print(f"  Total Benchmarks: {total_simulations}")
-    print(f"  Parallelism: {parallelism}")
+    print(f"  Parallelism: {actual_parallelism}")
+    print(f"  Dry run: {dry_run}")
     print()
 
     completed_simulations = 0
     progress_lock = threading.Lock()
+    failures = []
     start_time = time.time()
 
     def run_benchmark_local(benchmark_tuple):
@@ -222,31 +169,45 @@ def main():
 
         benchmark, category = benchmark_tuple
         trace_name = get_trace_output_name(benchmark)
-        trace_path = f"{SPEC2017_path}{benchmark}"
-        output_path = f"results/{prefetcher}/{category}/{trace_name}.txt"
+        trace_path = os.path.join(SPEC2017_path, benchmark)
+        output_path = f"results/log/{prefetcher}/{category}/{trace_name}.txt"
+        json_path = f"results/json/{prefetcher}/{category}/{trace_name}.json"
 
         cmd = [
             binary_path,
-            "--warmup-instructions",
+            f'--json={json_path}',
+            "--warmup_instructions",
             str(WARMUP_INSTRUCTIONS),
-            "--simulation-instructions",
+            "--simulation_instructions",
             str(SIMULATION_INSTRUCTIONS),
             trace_path,
         ]
 
         print(f"Starting {benchmark} ...")
-        with open(output_path, "w") as out_file:
-            result = subprocess.run(cmd, stdout=out_file, stderr=subprocess.STDOUT)
+
+        try:
+            with open(output_path, "w") as out_file:
+                result = run_cmd(
+                    cmd,
+                    stdout=out_file,
+                    stderr=subprocess.STDOUT,
+                    dry_run=dry_run,
+                )
+            returncode = result.returncode
+        except Exception as e:
+            returncode = -1
+            with open(output_path, "a") as out_file:
+                out_file.write(f"\n[launcher error] {e}\n")
 
         with progress_lock:
             completed_simulations += 1
             finished = completed_simulations
 
-        if result.returncode == 0:
+        if returncode == 0:
             print(f"Completed {benchmark}. [Progress: {finished} / {total_simulations}]")
         else:
             print(
-                f"Failed {benchmark} (exit code {result.returncode}). "
+                f"Failed {benchmark} (exit code {returncode}). "
                 f"[Progress: {finished} / {total_simulations}]"
             )
 
@@ -254,13 +215,11 @@ def main():
             "benchmark": benchmark,
             "category": category,
             "trace_name": trace_name,
-            "returncode": result.returncode,
+            "returncode": returncode,
             "output_path": output_path,
         }
 
-    failures = []
-
-    with ThreadPoolExecutor(max_workers=parallelism) as executor:
+    with ThreadPoolExecutor(max_workers=actual_parallelism) as executor:
         futures = [executor.submit(run_benchmark_local, item) for item in all_benchmarks]
 
         for future in as_completed(futures):
@@ -268,11 +227,11 @@ def main():
             if result["returncode"] != 0:
                 failures.append(result)
 
+    elapsed_time_minutes = (time.time() - start_time) / 60.0
+
     print("===================")
     print("Simulation Complete")
     print("===================")
-
-    elapsed_time_minutes = (time.time() - start_time) / 60.0
     print(f"Simulated: {prefetcher}")
     print(f"Simulation time: {elapsed_time_minutes:.2f} minutes")
 
@@ -284,7 +243,28 @@ def main():
                 f"  - {item['benchmark']} -> {item['output_path']} "
                 f"(exit code {item['returncode']})"
             )
+        return 1
+
+    return 0
+
+
+def main():
+    args = parse_args()
+
+    if args.parallelism <= 0:
+        print("--parallelism must be >= 1")
         sys.exit(1)
+
+    matching_benchmarks = get_matching_benchmarks(args.benchmark)
+    all_benchmarks = build_benchmark_list(matching_benchmarks)
+
+    overall_rc = 0
+    for prefetcher in PREFETCHERS:
+        rc = run_prefetcher(prefetcher, all_benchmarks, args.parallelism, args.dry_run)
+        if rc != 0:
+            overall_rc = rc
+
+    sys.exit(overall_rc)
 
 
 if __name__ == "__main__":
