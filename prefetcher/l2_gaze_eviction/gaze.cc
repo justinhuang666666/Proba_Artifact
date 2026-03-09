@@ -215,7 +215,7 @@ uint64_t PatternTable::build_key(uint64_t trigger, uint64_t second, uint64_t pc,
 }
 
 // ------------------------- PB functions ------------------------- //
-PrefetchBuffer::PrefetchBuffer(int size, int pattern_len, int debug_level = 0, int num_ways = 16) :
+PrefetchBuffer::PrefetchBuffer(int size, int pattern_len, int debug_level = 0, int num_ways = 8) :
     Super(size, num_ways), pattern_len(pattern_len) {
 }
 
@@ -309,7 +309,7 @@ uint64_t PrefetchBuffer::build_key(uint64_t region_num) {
 // ------------------------- Gaze functions ------------------------- //
 
 Gaze::Gaze(int ft_size, int ft_ways, int at_size, int at_ways, int pt_size, int pt_ways, int pb_size, int pb_ways, int cpu = 0) :
-    ft(ft_size, ft_ways), at(at_size, at_ways), pt(pt_size, pt_ways), pb(pb_size, pb_ways), cpu(cpu) {
+    ft(ft_size, ft_ways), at(at_size, at_ways), pt(pt_size, pt_ways), pb(pb_size, NUM_BLOCKS, 0, pb_ways), cpu(cpu) {
 }
 
 void Gaze::access(uint64_t block_num, uint64_t pc, CACHE* cache) {

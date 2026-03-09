@@ -297,7 +297,7 @@ class PrefetchBuffer : public PS_CACHE_TYPE<PrefetchBufferData> {
     typedef PS_CACHE_TYPE<PrefetchBufferData> Super;
 
 public:
-    PrefetchBuffer(int size, int pattern_len, int debug_level = 0, int num_ways = 16) :
+    PrefetchBuffer(int size, int pattern_len, int debug_level = 0, int num_ways = 8) :
         Super(size, num_ways), pattern_len(pattern_len) {
         if (this->debug_level >= 1)
             std::cerr << "PrefetchBuffer::PrefetchBuffer(size=" << size << ", pattern_len=" << pattern_len
