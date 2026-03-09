@@ -172,9 +172,9 @@ def run_prefetcher(prefetcher, all_benchmarks, parallelism, dry_run):
 
         cmd = [
             binary_path,
-            "--warmup-instructions",
+            "--warmup_instructions",
             str(WARMUP_INSTRUCTIONS),
-            "--simulation-instructions",
+            "--simulation_instructions",
             str(SIMULATION_INSTRUCTIONS),
             trace_path,
         ]

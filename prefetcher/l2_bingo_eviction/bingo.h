@@ -573,7 +573,7 @@ private:
                     cnt += 1;
             double p = 1.0 * cnt / n;
             if (p >= L2C_THRESH)
-                res[i] = FILL_L1;
+                res[i] = FILL_L2;
             else
                 res[i] = 0;
             if (res[i] != 0)
