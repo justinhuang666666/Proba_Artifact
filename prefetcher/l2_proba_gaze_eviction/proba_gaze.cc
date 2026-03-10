@@ -63,11 +63,11 @@ void FilterTable::write_data(Entry& entry, custom_util::Table& table, int row) {
     table.set_cell(row, 2, entry.data.pc);
 }
 
-// ------------------------- AT functions ------------------------- //
-AccumulateTable::AccumulateTable(int size, int num_ways) :
+// ------------------------- AGT functions ------------------------- //
+ActiveGenerationTable::ActiveGenerationTable(int size, int num_ways) :
     Super(size, num_ways) {}
 
-AccumulateTable::Entry* AccumulateTable::set_pattern(uint64_t region_num, uint64_t offset) {
+ActiveGenerationTable::Entry* ActiveGenerationTable::set_pattern(uint64_t region_num, uint64_t offset) {
     uint64_t key = build_key(region_num);
     Entry* entry = Super::find(key);
     if (!entry)
@@ -81,7 +81,7 @@ AccumulateTable::Entry* AccumulateTable::set_pattern(uint64_t region_num, uint64
     }
 }
 
-AccumulateTable::Entry AccumulateTable::insert(uint64_t region_num, uint64_t trigger_offset, uint64_t second_offset, uint64_t pc) {
+ActiveGenerationTable::Entry ActiveGenerationTable::insert(uint64_t region_num, uint64_t trigger_offset, uint64_t second_offset, uint64_t pc) {
     uint64_t key = build_key(region_num);
     std::vector<bool> pattern(NUM_BLOCKS, false);
     std::vector<int> order(NUM_BLOCKS, 0);
@@ -93,17 +93,17 @@ AccumulateTable::Entry AccumulateTable::insert(uint64_t region_num, uint64_t tri
     return old_entry;
 }
 
-AccumulateTable::Entry* AccumulateTable::erase(uint64_t region_num) {
+ActiveGenerationTable::Entry* ActiveGenerationTable::erase(uint64_t region_num) {
     uint64_t key = build_key(region_num);
     return Super::erase(key);
 }
 
-std::string AccumulateTable::log() {
+std::string ActiveGenerationTable::log() {
     std::vector<std::string> headers({"RegionNum", "Trigger", "Second", "PC", "Pattern", "Order"});
     return Super::log(headers);
 }
 
-void AccumulateTable::write_data(Entry& entry, custom_util::Table& table, int row) {
+void ActiveGenerationTable::write_data(Entry& entry, custom_util::Table& table, int row) {
     // uint64_t key = custom_util::hash_index(entry.key, this->index_len);
     table.set_cell(row, 0, entry.key);
     table.set_cell(row, 1, entry.data.trigger_offset);
@@ -113,7 +113,7 @@ void AccumulateTable::write_data(Entry& entry, custom_util::Table& table, int ro
     table.set_cell(row, 5, custom_util::pattern_to_string(entry.data.order));
 }
 
-uint64_t AccumulateTable::build_key(uint64_t region_num) {
+uint64_t ActiveGenerationTable::build_key(uint64_t region_num) {
     uint64_t key = region_num & ((1ULL << 37) - 1);
     return custom_util::hash_index(key, this->index_len);
 }
@@ -280,14 +280,14 @@ uint64_t PrefetchBuffer::build_key(uint64_t region_num) {
 
 // ------------------------- ProbaGaze functions ------------------------- //
 
-ProbaGaze::ProbaGaze(int ft_size, int ft_ways, int at_size, int at_ways, int pht1_size, int pht1_ways, int pht2_size, int pht2_ways, int pb_size, int pb_ways, int cpu = 0) :
-    ft(ft_size, ft_ways), at(at_size, at_ways), pht1(pht1_size, pht1_ways), pht2(pht2_size, pht2_ways), pb(pb_size, NUM_BLOCKS, 0, pb_ways), cpu(cpu) {
+ProbaGaze::ProbaGaze(int ft_size, int ft_ways, int agt_size, int agt_ways, int pht1_size, int pht1_ways, int pht2_size, int pht2_ways, int pb_size, int pb_ways, int cpu = 0) :
+    ft(ft_size, ft_ways), agt(agt_size, agt_ways), pht1(pht1_size, pht1_ways), pht2(pht2_size, pht2_ways), pb(pb_size, NUM_BLOCKS, 0, pb_ways), cpu(cpu) {
 }
 
 void ProbaGaze::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
     uint64_t region_num = block_num >> (LOG2_REGION_SIZE - LOG2_BLOCK_SIZE);
     uint64_t region_offset = __region_offset(block_num);
-    auto agt_entry = this->at.set_pattern(region_num, region_offset);
+    auto agt_entry = this->agt.set_pattern(region_num, region_offset);
     if (agt_entry) {
         return;
     } else {
@@ -312,11 +312,11 @@ void ProbaGaze::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
             }
 
             // 2. insert into at
-            auto at_victim = at.insert(region_num, ft_entry->data.trigger_offset, region_offset, ft_entry->data.pc);
+            auto agt_victim = agt.insert(region_num, ft_entry->data.trigger_offset, region_offset, ft_entry->data.pc);
             ft.erase(region_num);
-            if (at_victim.valid) {
-                update_in_pht1(at_victim, region_num);
-                update_in_pht2(at_victim, region_num);
+            if (agt_victim.valid) {
+                update_in_pht1(agt_victim);
+                update_in_pht2(agt_victim);
             }
         }
     }
@@ -325,10 +325,10 @@ void ProbaGaze::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
 void ProbaGaze::eviction(uint64_t block_num) {
     uint64_t region_num = block_num >> (LOG2_REGION_SIZE - LOG2_BLOCK_SIZE);
     ft.erase(region_num);
-    auto entry = at.erase(region_num);
+    auto entry = agt.erase(region_num);
     if (entry) {
-        update_in_pht1(*entry, region_num);
-        update_in_pht2(*entry, region_num);
+        update_in_pht1(*entry);
+        update_in_pht2(*entry);
     }
 }
 
@@ -342,7 +342,7 @@ void ProbaGaze::log() {
     std::cout << "Filter table end" << std::endl;
 
     std::cout << "Accumulation table begin" << std::dec << std::endl;
-    std::cout << this->at.log();
+    std::cout << this->agt.log();
     std::cout << "Accumulation table end" << std::endl;
 
     std::cout << "Pattern history table 1 begin" << std::dec << std::endl;
@@ -359,12 +359,14 @@ void ProbaGaze::log() {
 }
 
 
-void ProbaGaze::update_in_pht1(const AccumulateTable::Entry& agt_entry) {
+void ProbaGaze::update_in_pht1(const ActiveGenerationTable::Entry& agt_entry) {
     auto pht1_entry = pht1.find(agt_entry.data.pc);
     if(pht1_entry){
         const std::vector<int> &observation = rotate(pattern_bool2int(agt_entry.data.pattern), -agt_entry.data.trigger_offset);
         std::vector<int> prediction = pht1_entry->data.pattern;
         custom_util::SaturatingCounter mode = pht1_entry->data.mode;
+
+        assert(count_bits_same(prediction, observation) >= 1);
 
         uint64_t pop_count_observation             = count_bits_set(observation) - 1;
         uint64_t pop_count_prediction              = count_bits_set(prediction) - 1;
@@ -380,7 +382,7 @@ void ProbaGaze::update_in_pht1(const AccumulateTable::Entry& agt_entry) {
             local_accuracy = static_cast<uint64_t>(tmp);
         }
 
-        uint64_t local_acc_thr       = proba_acc_thr;
+        uint64_t local_acc_thr       = proba_acc_thr1;
         uint64_t corrected_accuracy  = local_accuracy;
 
         corrected_accuracy = std::clamp<uint64_t>(corrected_accuracy, 0, 100);
@@ -389,10 +391,8 @@ void ProbaGaze::update_in_pht1(const AccumulateTable::Entry& agt_entry) {
         if(pop_count_prediction > 0){
             if(corrected_accuracy > local_acc_thr) {
                 mode.inc();
-                if (is_debug) std::cout << "Accuracy greater than threshold, increment mode: " << mode.get_cnt() <<std::endl;
             } else {
                 mode.dec();
-                if (is_debug) std::cout << "Accuracy less than threshold, decrement mode: " << mode.get_cnt() <<std::endl;
             }
         }
 
@@ -427,16 +427,18 @@ void ProbaGaze::update_in_pht1(const AccumulateTable::Entry& agt_entry) {
 }
 
 
-void ProbaGaze::update_in_pht2(const AccumulateTable::Entry& agt_entry) {
+void ProbaGaze::update_in_pht2(const ActiveGenerationTable::Entry& agt_entry) {
     auto pht2_entry = pht2.find(agt_entry.data.trigger_offset, agt_entry.data.second_offset);
     if(pht2_entry){
         const std::vector<int> &observation = pattern_bool2int(agt_entry.data.pattern);
         std::vector<int> prediction = pht2_entry->data.pattern;
         custom_util::SaturatingCounter mode = pht2_entry->data.mode;
 
-        uint64_t pop_count_observation             = count_bits_set(observation) - 1;
-        uint64_t pop_count_prediction              = count_bits_set(prediction) - 1;
-        uint64_t same_count_observation_prediction = count_bits_same(prediction, observation) - 1;
+        assert(count_bits_same(prediction, observation) >= 2);
+
+        uint64_t pop_count_observation             = count_bits_set(observation) - 2;
+        uint64_t pop_count_prediction              = count_bits_set(prediction) - 2;
+        uint64_t same_count_observation_prediction = count_bits_same(prediction, observation) - 2;
 
         uint64_t local_accuracy = 0;
         {
@@ -448,7 +450,7 @@ void ProbaGaze::update_in_pht2(const AccumulateTable::Entry& agt_entry) {
             local_accuracy = static_cast<uint64_t>(tmp);
         }
 
-        uint64_t local_acc_thr       = proba_acc_thr;
+        uint64_t local_acc_thr       = proba_acc_thr2;
         uint64_t corrected_accuracy  = local_accuracy;
 
         corrected_accuracy = std::clamp<uint64_t>(corrected_accuracy, 0, 100);
@@ -457,10 +459,8 @@ void ProbaGaze::update_in_pht2(const AccumulateTable::Entry& agt_entry) {
         if(pop_count_prediction > 0){
             if(corrected_accuracy > local_acc_thr) {
                 mode.inc();
-                if (is_debug) std::cout << "Accuracy greater than threshold, increment mode: " << mode.get_cnt() <<std::endl;
             } else {
                 mode.dec();
-                if (is_debug) std::cout << "Accuracy less than threshold, decrement mode: " << mode.get_cnt() <<std::endl;
             }
         }
 
@@ -494,6 +494,19 @@ void ProbaGaze::update_in_pht2(const AccumulateTable::Entry& agt_entry) {
     }
 }
 
+
+std::pair<uint64_t,uint64_t> ProbaGaze::get_probs(custom_util::SaturatingCounter mode) {
+    assert(!(mode.get_cnt() < 0 || mode.get_cnt() > 7));
+
+    static constexpr std::array<uint64_t,8> insert_probabilities = {
+        1, 5, 10, 40, 100, 100, 100, 100
+    };
+    static constexpr std::array<uint64_t,8> delete_probabilities = {
+        100, 100, 100, 100, 100, 60, 40, 20
+    };
+    return { insert_probabilities[mode.get_cnt()], delete_probabilities[mode.get_cnt()] };
+}
+
 void ProbaGaze::set_warmup(bool warmup) {
     this->warmup = warmup;
     this->pb.warmup = warmup;
@@ -507,12 +520,50 @@ std::vector<int> pattern_bool2int(std::vector<bool> pattern) {
     return pattern_int;
 }
 
+std::vector<int> rotate(const std::vector<int>& pattern, int offset) {
+    size_t n = pattern.size();
+    if (n == 0)
+        return pattern;
+
+    // Normalize offset into [0, n)
+    int off = offset % static_cast<int>(n);
+    if (off < 0)
+        off += n;
+    if (off == 0)
+        return pattern;
+
+    std::vector<int> result = pattern;
+    std::rotate(result.begin(), result.end() - off, result.end());
+    return result;
+}
+
+uint64_t random_gen() {
+    return static_cast<uint64_t>(std::rand() % 100);
+}
+
+uint32_t count_bits_set(const std::vector<int> &pattern) {
+    return std::count(pattern.begin(), pattern.end(), probagaze::PF_FILL_L2);
+}
+
+uint32_t count_bits_same(const std::vector<int> &pattern1, const std::vector<int> &pattern2) {
+    assert(pattern1.size() == pattern2.size() && "Patterns must be the same length");
+
+    uint32_t count = 0;
+    for (size_t i = 0; i < pattern1.size(); ++i) {
+        if (pattern1[i] == probagaze::PF_FILL_L2 && pattern2[i] == probagaze::PF_FILL_L2) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+
 } // namespace probagaze
 
 void CACHE::prefetcher_initialize() {
     std::cout << NAME << " Gaze NEW NEW prefetcher" << std::endl;
 
-    prefetchers = std::vector<probagaze::ProbaGaze>(NUM_CPUS, probagaze::ProbaGaze(probagaze::FT_SIZE, probagaze::FT_WAY, probagaze::AT_SIZE, probagaze::AT_WAY, probagaze::PHT1_SIZE, probagaze::PHT1_WAY, probagaze::PHT2_SIZE, probagaze::PHT2_WAY, probagaze::PB_SIZE, probagaze::PB_WAY, cpu));
+    prefetchers = std::vector<probagaze::ProbaGaze>(NUM_CPUS, probagaze::ProbaGaze(probagaze::FT_SIZE, probagaze::FT_WAY, probagaze::AGT_SIZE, probagaze::AGT_WAY, probagaze::PHT1_SIZE, probagaze::PHT1_WAY, probagaze::PHT2_SIZE, probagaze::PHT2_WAY, probagaze::PB_SIZE, probagaze::PB_WAY, cpu));
 }
 
 uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint32_t metadata_in) {
@@ -535,9 +586,7 @@ uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cac
 uint32_t CACHE::prefetcher_cache_fill(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in) {
     uint64_t evicted_block_num = evicted_addr >> LOG2_BLOCK_SIZE;
 
-    for (int i = 0; i < NUM_CPUS; i += 1) {
-        prefetchers[i].eviction(evicted_block_num);
-    }
+    prefetchers[cpu].eviction(evicted_block_num);
 
     return metadata_in;
 }

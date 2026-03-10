@@ -24,7 +24,7 @@ namespace probagaze {
 #define __region_offset(block_num) (block_num & REGION_OFFSET_MASK)
 
 #define FT_TYPE custom_util::SRRIPSetAssociativeCache
-#define AT_TYPE custom_util::LRUSetAssociativeCache
+#define AGT_TYPE custom_util::LRUSetAssociativeCache
 #define PHT1_TYPE custom_util::LRUSetAssociativeCache
 #define PHT2_TYPE custom_util::LRUSetAssociativeCache
 #define PB_TYPE custom_util::LRUSetAssociativeCache
@@ -36,7 +36,7 @@ constexpr uint64_t REGION_OFFSET_MASK = (1ULL << (LOG2_REGION_SIZE - LOG2_BLOCK_
 constexpr int NUM_BLOCKS = REGION_SIZE / BLOCK_SIZE;
 
 constexpr int FT_SIZE = 64, FT_WAY = 8;
-constexpr int AT_SIZE = 64, AT_WAY = 8;
+constexpr int AGT_SIZE = 64, AGT_WAY = 8;
 
 constexpr int PHT1_WAY = 16;
 constexpr int PHT1_SIZE = 256;
@@ -52,6 +52,10 @@ constexpr int PF_FILL_L3 = 3;
 
 // ------------------------- Util Functions ------------------------- //
 std::vector<int> pattern_bool2int(std::vector<bool> pattern);
+std::vector<int> rotate(const std::vector<int>& pattern, int offset);
+uint64_t random_gen();
+uint32_t count_bits_set(const std::vector<int> &pattern);
+uint32_t count_bits_same(const std::vector<int> &pattern1, const std::vector<int> &pattern2);
 
 
 // ------------------------- Filter Table ------------------------- //
@@ -77,8 +81,8 @@ public:
     std::string log();
 };
 
-// ------------------------- Accumulate Table ------------------------- //
-struct AccumulateTableData {
+// ------------------------- Active Generation Table ------------------------- //
+struct ActiveGenerationTableData {
     uint64_t trigger_offset;
     uint64_t second_offset;
     uint64_t pc;
@@ -87,15 +91,15 @@ struct AccumulateTableData {
     std::vector<int> order;
 };
 
-class AccumulateTable : public AT_TYPE<AccumulateTableData> {
-    typedef AT_TYPE<AccumulateTableData> Super;
+class ActiveGenerationTable : public AGT_TYPE<ActiveGenerationTableData> {
+    typedef AGT_TYPE<ActiveGenerationTableData> Super;
 
 private:
     void write_data(Entry& entry, custom_util::Table& table, int row);
     uint64_t build_key(uint64_t region_num);
 
 public:
-    AccumulateTable(int size, int num_ways);
+    ActiveGenerationTable(int size, int num_ways);
 
     Entry* set_pattern(uint64_t region_num, uint64_t offset);
 
@@ -186,25 +190,32 @@ private:
     int cpu;
 
     FilterTable ft;
-    AccumulateTable at;
+    ActiveGenerationTable agt;
     PatternHistoryTable1 pht1;
     PatternHistoryTable2 pht2;
     PrefetchBuffer pb;
 
-    void update_in_pht1(const AccumulateTable::Entry& agt_entry);
-    void update_in_pht2(const AccumulateTable::Entry& agt_entry);
+    void update_in_pht1(const ActiveGenerationTable::Entry& agt_entry);
+    void update_in_pht2(const ActiveGenerationTable::Entry& agt_entry);
+
+    uint64_t proba_acc_thr1 = 50;
+    uint64_t proba_acc_thr2 = 50;
+
+    std::pair<uint64_t,uint64_t> get_probs(custom_util::SaturatingCounter mode);
 
 public:
     int global_level = 0;
     bool warmup;
 
-    ProbaGaze(int ft_size, int ft_ways, int at_size, int at_ways, int pht1_size, int pht1_ways, int pht2_size, int pht2_ways, int pb_size, int pb_ways, int cpu);
+    ProbaGaze(int ft_size, int ft_ways, int agt_size, int agt_ways, int pht1_size, int pht1_ways, int pht2_size, int pht2_ways, int pb_size, int pb_ways, int cpu);
     ProbaGaze();
     void set_warmup(bool warmup);
 
     void access(uint64_t block_num, uint64_t ip, CACHE* cache);
     void eviction(uint64_t block_num);
     void prefetch(CACHE* cache, uint64_t block_num);
+
+
 
     void log();
 };
