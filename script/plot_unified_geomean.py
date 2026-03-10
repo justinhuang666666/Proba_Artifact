@@ -610,38 +610,22 @@ def create_plot(geomean_speedups, plot_prefetchers, metric_name, ylabel, filenam
     display_prefetchers = []
     # Change the names of the prefetchers to the display names
     for prefetcher in plot_prefetchers:
-        if prefetcher == 'no-bop':
-            display_prefetchers.append('BOP')
-        elif prefetcher == 'bop-no':
-            display_prefetchers.append('BOP')
-        elif prefetcher == 'berti-no':
-            display_prefetchers.append('BertiHP')
-        elif prefetcher == 'ip_stride-no':
-            display_prefetchers.append('Stride')
-        elif prefetcher == 'no-caerus':
-            display_prefetchers.append('Caerus')
-        elif prefetcher == 'mlop-no':
-            display_prefetchers.append('MLOP')
-        elif prefetcher == 'caerus_single_offset':
-            display_prefetchers.append('Single Offset')
-        elif prefetcher == 'caerus_8_offset':
-            display_prefetchers.append('+ Multiple Offsets')
-        elif prefetcher == 'caerus_8_offset_no_overlap':
-            display_prefetchers.append('+ No Overlap')
-        elif prefetcher == 'caerus_8_offset_acc_621_train4':
-            display_prefetchers.append('+ PC-Local Filtering')
-        elif prefetcher == 'caerus-no':
-            display_prefetchers.append('Caerus')
-        elif prefetcher == 'chimera-no':
-            display_prefetchers.append('Chimera')
-        elif prefetcher == 'ablation_1offset':
-            display_prefetchers.append('1 Offset Caerus')
-        elif prefetcher == 'caerus_overlap-no_20offsets':
-            display_prefetchers.append('+ Accuracy Tracking')
-        elif prefetcher == 'caerus_overlap-no_20offsets_noacc':
-            display_prefetchers.append('+ Multiple Offsets')
-        elif prefetcher == 'caerus-no-full':
-            display_prefetchers.append('+Overlap Prevention')
+        if prefetcher == 'l2_sms_eviction':
+            display_prefetchers.append('L2 SMS')
+        elif prefetcher == 'l2_bingo_eviction':
+            display_prefetchers.append('L2 Bingo')
+        elif prefetcher == 'l2_dspatch_eviction':
+            display_prefetchers.append('L2 DSPatch')
+        elif prefetcher == 'l2_pmp_eviction':
+            display_prefetchers.append('L2 PMP')
+        elif prefetcher == 'l2_gaze_eviction':
+            display_prefetchers.append('L2 Gaze')
+        elif prefetcher == 'l2_proba_eviction':
+            display_prefetchers.append('L2 Proba')
+        elif prefetcher == 'l2_proba_eog_jail_sampling':
+            display_prefetchers.append('L2 Proba EOG Jail Sampling')
+        elif prefetcher == 'l2_proba_eog_jail_sampling_calibration':
+            display_prefetchers.append('L2 Proba EOG Jail Sampling Calibration')
         else:
             display_prefetchers.append(prefetcher)
     
@@ -655,7 +639,7 @@ def create_plot(geomean_speedups, plot_prefetchers, metric_name, ylabel, filenam
         ax.grid(True, linestyle='--', alpha=0.7, axis='y', zorder=0)
         
         x = np.arange(len(trace_labels))
-        bar_width = 0.5 / len(plot_prefetchers)
+        bar_width = 0.8 / len(plot_prefetchers)
         
         for i, prefetcher in enumerate(plot_prefetchers):
             heights = [geomean_speedups[prefetcher].get(label, 0.0) for label in trace_labels]
@@ -663,10 +647,10 @@ def create_plot(geomean_speedups, plot_prefetchers, metric_name, ylabel, filenam
             
             # Determine edge color based on HIGHLIGHT_LAST setting
             edge_color = 'black'
-            line_width = 1
+            line_width = 0.5
             if HIGHLIGHT_LAST and i == len(plot_prefetchers) - 1:
                 edge_color = 'black'
-                line_width = 2
+                line_width = 1
             
             ax.bar(offsets, heights, width=bar_width, label=display_prefetchers[i], 
                    edgecolor=edge_color, linewidth=line_width, zorder=1)
@@ -749,10 +733,10 @@ def create_plot(geomean_speedups, plot_prefetchers, metric_name, ylabel, filenam
         for i, (x, val) in enumerate(zip(x_positions, geomean_values)):
             # Determine edge color based on HIGHLIGHT_LAST setting
             edge_color = 'black'
-            line_width = 1
+            line_width = 0.5
             if HIGHLIGHT_LAST and i == len(plot_prefetchers) - 1:
                 edge_color = 'black'
-                line_width = 2
+                line_width = 1
             
             # ax.bar(x, val, width=0.5, label='Geomean', color=blues[i % len(blues)])
             ax.bar(x, val, width=0.5, label='Geomean', edgecolor=edge_color, linewidth=line_width)
@@ -778,7 +762,7 @@ def create_plot(geomean_speedups, plot_prefetchers, metric_name, ylabel, filenam
         # Original bar plot code
         all_labels = BENCHMARKS + (["geomean"] if include_geomean else [])
         x = np.arange(len(all_labels))
-        bar_width = 0.5 / len(plot_prefetchers)
+        bar_width = 0.8 / len(plot_prefetchers)
         
         fig, ax = plt.subplots(figsize=(PLOT_WIDTH, PLOT_HEIGHT))
         
@@ -793,10 +777,10 @@ def create_plot(geomean_speedups, plot_prefetchers, metric_name, ylabel, filenam
             
             # Determine edge color based on HIGHLIGHT_LAST setting
             edge_color = 'black'
-            line_width = 1
+            line_width = 0.5
             if HIGHLIGHT_LAST and i == len(plot_prefetchers) - 1:
                 edge_color = 'black'
-                line_width = 1.5
+                line_width = 1
             
             ax.bar(offsets, heights, width=bar_width, label=display_prefetchers[i], 
                    edgecolor=edge_color, linewidth=line_width, zorder=1)
