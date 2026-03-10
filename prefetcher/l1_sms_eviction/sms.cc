@@ -40,9 +40,8 @@ uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cac
 uint32_t CACHE::prefetcher_cache_fill(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in) {
     uint64_t evicted_block = evicted_addr >> LOG2_BLOCK_SIZE;
 
-    /* inform all sms modules of the eviction */
-    for (int i = 0; i < NUM_CPUS; i += 1)
-        prefetchers[i].eviction(evicted_block);
+    prefetchers[cpu].eviction(evicted_block);
+
     return metadata_in;
 }
 
