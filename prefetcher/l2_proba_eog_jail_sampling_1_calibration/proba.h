@@ -1,5 +1,5 @@
-#ifndef PROBA_GAZE_H
-#define PROBA_GAZE_H
+#ifndef PROBA_H
+#define PROBA_H
 
 /*
  * Proba: Spatial Memory Streaming with Probabilistic Updates
@@ -19,37 +19,29 @@
 #include <random>
 #include <deque>
 
-namespace probagaze {
+namespace proba {
 
 #define __region_offset(block_num) (block_num & REGION_OFFSET_MASK)
 
-#define FT_TYPE custom_util::SRRIPSetAssociativeCache
-#define AGT_TYPE custom_util::LRUSetAssociativeCache
-#define PHT1_TYPE custom_util::LRUSetAssociativeCache
-#define PHT2_TYPE custom_util::LRUSetAssociativeCache
+#define AGT_TYPE custom_util::RandomSetAssociativeCache
+#define PHT_TYPE custom_util::LRUSetAssociativeCache
 #define PB_TYPE custom_util::LRUSetAssociativeCache
 
 constexpr uint64_t REGION_SIZE = 4 * 1024; // '4KB', '8KB', '16KB, '32KB', '64KB, '128KB', '512KB', '1024KB', '2048KB'
 constexpr uint64_t LOG2_REGION_SIZE = champsim::lg2(REGION_SIZE);
 constexpr uint64_t REGION_OFFSET_MASK = (1ULL << (LOG2_REGION_SIZE - LOG2_BLOCK_SIZE)) - 1;
-
-constexpr uint64_t IS_DEBUG = true; 
+constexpr bool DEBUG = false;
 
 constexpr int NUM_BLOCKS = REGION_SIZE / BLOCK_SIZE;
 
-constexpr int FT_SIZE = 64, FT_WAY = 8;
 constexpr int AGT_SIZE = 64, AGT_WAY = 8;
-
-constexpr int PHT1_WAY = 16;
-constexpr int PHT1_SIZE = 256;
-constexpr int PHT2_WAY = 4;
-constexpr int PHT2_SIZE = PHT2_WAY * NUM_BLOCKS;
-
+constexpr int PHT_WAY = 16;
+constexpr int PHT_SIZE = 256;
 constexpr int PB_SIZE = 32, PB_WAY = 8;
+
 
 constexpr int JT_SIZE = 4096;
 
-constexpr int STRIDE_PF_LOOKAHEAD = 2;
 constexpr int PF_FILL_L1 = 1;
 constexpr int PF_FILL_L2 = 2;
 constexpr int PF_FILL_L3 = 3;
@@ -61,38 +53,11 @@ uint64_t random_gen();
 uint32_t count_bits_set(const std::vector<int> &pattern);
 uint32_t count_bits_same(const std::vector<int> &pattern1, const std::vector<int> &pattern2);
 
-
-// ------------------------- Filter Table ------------------------- //
-struct FilterTableData {
-    uint64_t trigger_offset;
-    uint64_t pc;
-};
-
-class FilterTable : public FT_TYPE<FilterTableData> {
-    typedef FT_TYPE<FilterTableData> Super;
-
-private:
-    uint64_t build_key(uint64_t region_num);
-    void write_data(Entry& entry, custom_util::Table& table, int row);
-
-public:
-    FilterTable(int size, int num_ways);
-
-    Entry* find(uint64_t region_num);
-    Entry insert(uint64_t region_num, uint64_t trigger_offset, uint64_t pc);
-    Entry* erase(uint64_t region_num);
-
-    std::string log();
-};
-
 // ------------------------- Active Generation Table ------------------------- //
 struct ActiveGenerationTableData {
     uint64_t trigger_offset;
-    uint64_t second_offset;
     uint64_t pc;
-
     std::vector<bool> pattern;
-    std::vector<int> order;
 };
 
 class ActiveGenerationTable : public AGT_TYPE<ActiveGenerationTableData> {
@@ -107,54 +72,31 @@ public:
 
     Entry* set_pattern(uint64_t region_num, uint64_t offset);
 
-    Entry insert(uint64_t region_num, uint64_t trigger_offset, uint64_t second_offset, uint64_t pc);
+    Entry insert(uint64_t region_num, uint64_t trigger_offset, uint64_t pc);
     Entry* erase(uint64_t region_num);
+    int get_num_valid_entries_per_set(uint64_t region_num);
 
     std::string log();
 };
 
-// ------------------------- Pattern History Table 1 ------------------------- //
-struct PatternHistoryTable1Data {
+// ------------------------- Pattern History Table ------------------------- //
+struct PatternHistoryTableData {
     std::vector<int> pattern;
     custom_util::SaturatingCounter mode;
 };
 
-class PatternHistoryTable1 : public PHT1_TYPE<PatternHistoryTable1Data> {
-    typedef PHT1_TYPE<PatternHistoryTable1Data> Super;
+class PatternHistoryTable : public PHT_TYPE<PatternHistoryTableData> {
+    typedef PHT_TYPE<PatternHistoryTableData> Super;
 
 private:
     void write_data(Entry& entry, custom_util::Table& table, int row);
     uint64_t build_key(uint64_t pc);
 
 public:
-    PatternHistoryTable1(int size, int num_ways);
+    PatternHistoryTable(int size, int num_ways);
     void insert(uint64_t pc, const std::vector<int> &pattern); 
     void update(uint64_t pc, const std::vector<int> &pattern, const custom_util::SaturatingCounter &mode);
     Entry* find(uint64_t pc);
-
-    std::string log();
-};
-
-
-// ------------------------- Pattern History Table 2 ------------------------- //
-struct PatternHistoryTable2Data {
-    std::vector<int> pattern;
-    custom_util::SaturatingCounter mode;
-};
-
-class PatternHistoryTable2 : public PHT2_TYPE<PatternHistoryTable2Data> {
-    typedef PHT2_TYPE<PatternHistoryTable2Data> Super;
-
-private:
-    void write_data(Entry& entry, custom_util::Table& table, int row);
-    uint64_t build_key(uint64_t trigger, uint64_t second);
-
-public:
-    PatternHistoryTable2(int size, int num_ways);
-
-    void insert(uint64_t trigger, uint64_t second, const std::vector<int> &pattern);
-    void update(uint64_t trigger, uint64_t second, const std::vector<int> &pattern, const custom_util::SaturatingCounter &mode);
-    Entry* find(uint64_t trigger, uint64_t second);
 
     std::string log();
 };
@@ -163,9 +105,6 @@ public:
 struct PrefetchBufferData {
 public:
     std::vector<int> pattern;
-    uint64_t trigger;
-    uint64_t second;
-    std::vector<int> pf_metadata;
 };
 
 class PrefetchBuffer : public PB_TYPE<PrefetchBufferData> {
@@ -173,6 +112,7 @@ class PrefetchBuffer : public PB_TYPE<PrefetchBufferData> {
 
 private:
     int pattern_len;
+    int debug_level;
 
     void write_data(Entry& entry, custom_util::Table& table, int row);
     uint64_t build_key(uint64_t region_num);
@@ -180,14 +120,12 @@ private:
 public:
     bool warmup;
 
-    PrefetchBuffer(int size, int pattern_len, int debug_level, int num_ways);
-
+    PrefetchBuffer(int size, int pattern_len, int debug_level=0, int num_ways=8);
     void insert(uint64_t region_num, std::vector<int> pattern);
     int prefetch(CACHE* cache, uint64_t block_num);
 
     std::string log();
 };
-
 
 // ------------------------- Jail Table ------------------------- //
 class JailTable {
@@ -211,6 +149,7 @@ private:
 
     uint64_t build_key(uint64_t region_num) {
         uint64_t key = region_num & ((1ULL << 37) - 1);
+        // return custom_util::hash_index(key, this->index_len);
         return key;
     }
 
@@ -238,51 +177,64 @@ public:
         return (jail_table1[hash(key)]&&jail_table2[hash(key*1664525+1013904223)]);
     }
 };
-    
-// ------------------------- ProbaGaze Prefetcher ------------------------- //
-class ProbaGaze {
+
+// ------------------------- Proba Prefetcher ------------------------- //
+class Proba {
 private:
-    int cpu;
-
-    FilterTable ft;
     ActiveGenerationTable agt;
-    PatternHistoryTable1 pht1;
-    PatternHistoryTable2 pht2;
-    PrefetchBuffer pb;
+    PatternHistoryTable pht;
     JailTable jt;
+    PrefetchBuffer pb;
 
-    bool use_sampling = true;
-    bool use_jail_table = true;
-    bool use_only_training_on_eog = true;
+    int sample_rate = 1;
+    int proba_acc_thr = 50;
+
+    int ewma_window_size = 1000;
+    int ewma_alpha_num = 1;
+    int ewma_alpha_den = 2;
+
+    bool is_accuracy_targeter = false;
+    bool is_accuracy_correction = true;
+
+    uint64_t num_valid_update = 0;
+    uint64_t total_num_valid_update = 0;
+
+    uint64_t global_accurate_pf_sum = 0;
+    uint64_t global_pf_sum = 0;
+    uint64_t ewma_accuracy_estimate = 0;
+    uint64_t ewma_global_accuracy = 0;
+
+    uint64_t prev_pf_useful = 0;
+    uint64_t prev_pf_unused = 0;
+
+    bool use_sampling = false;
+    bool use_jail_table = false;
+    bool use_only_training_on_eog = false;
 
     bool is_debug;
 
-    void update_in_pht1(const ActiveGenerationTable::Entry& agt_entry, CACHE* cache);
-    void update_in_pht2(const ActiveGenerationTable::Entry& agt_entry, CACHE* cache);
+    int cpu;
 
-    uint64_t sample_rate = 10;
-    uint64_t proba_acc_thr1 = 50;
-    uint64_t proba_acc_thr2 = 50;
-
-    std::pair<uint64_t,uint64_t> get_probs(custom_util::SaturatingCounter mode);
+    void update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is_end_of_generation, CACHE* cache);
 
 public:
     int global_level = 0;
     bool warmup;
 
-    ProbaGaze(int ft_size, int ft_ways, int agt_size, int agt_ways, int pht1_size, int pht1_ways, int pht2_size, int pht2_ways, int pb_size, int pb_ways, int jt_size, bool is_debug, int cpu = 0);
+    Proba(int agt_size, int agt_ways, int pht_size, int pht_ways, int jt_size, int pb_size, int pb_ways, bool is_debug, int cpu);
 
     void set_warmup(bool warmup);
 
-    void access(uint64_t block_num, uint64_t ip, CACHE* cache);
+    void ewma_update(uint64_t& ewma, uint64_t sample, int alpha_num, int alpha_den);
+    std::pair<uint64_t,uint64_t> get_probs(custom_util::SaturatingCounter mode);
+
+    void access(uint64_t block_num, uint64_t pc, CACHE* cache);
     void eviction(uint64_t block_num, CACHE* cache);
-    void prefetch(CACHE* cache, uint64_t block_num);
-
-
+    int prefetch(CACHE* cache, uint64_t block_num);
 
     void log();
 };
 
-} // namespace probagaze
+} // namespace proba
 
 #endif

@@ -23,8 +23,12 @@ PREFETCHERS = [
     "l2_pmp_eviction",
     "l2_gaze_eviction",
     "l2_proba_eviction",
-    "l2_proba_eog_jail_sampling",
-    "l2_proba_eog_jail_sampling_calibration",
+    "l2_proba_eog_jail_sampling_1",
+    "l2_proba_eog_jail_sampling_5",
+    "l2_proba_eog_jail_sampling_10",
+    "l2_proba_eog_jail_sampling_20",
+    "l2_proba_eog_jail_sampling_1_calibration",
+    "l2_proba_gaze_eog_jail_sampling_1",
 ]
 
 
