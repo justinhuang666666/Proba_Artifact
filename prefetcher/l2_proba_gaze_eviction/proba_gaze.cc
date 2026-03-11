@@ -143,7 +143,10 @@ void PatternHistoryTable1::update(uint64_t pc, const std::vector<int> &pattern, 
 
 PatternHistoryTable1::Entry* PatternHistoryTable1::find(uint64_t pc) {
     uint64_t key = build_key(pc);
-    return Super::find(key);
+    Entry* entry = Super::find(key);
+    if (entry)
+        Super::rp_promote(key);
+    return entry;
 }
 
 std::string PatternHistoryTable1::log() {
@@ -183,8 +186,11 @@ void PatternHistoryTable2::update(uint64_t trigger, uint64_t second, const std::
 }
 
 PatternHistoryTable2::Entry* PatternHistoryTable2::find(uint64_t trigger, uint64_t second) {
-    uint64_t key = build_key(trigger, second);
-    return Super::find(key);
+    uint64_t key = build_key(pc);
+    Entry* entry = Super::find(key);
+    if (entry)
+        Super::rp_promote(key);
+    return entry;
 }
 
 std::string PatternHistoryTable2::log() {
