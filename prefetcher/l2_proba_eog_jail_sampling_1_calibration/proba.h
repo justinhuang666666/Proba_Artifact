@@ -207,9 +207,9 @@ private:
     uint64_t prev_pf_useful = 0;
     uint64_t prev_pf_unused = 0;
 
-    bool use_sampling = false;
-    bool use_jail_table = false;
-    bool use_only_training_on_eog = false;
+    bool use_sampling = true;
+    bool use_jail_table = true;
+    bool use_only_training_on_eog = true;
 
     bool is_debug;
 
