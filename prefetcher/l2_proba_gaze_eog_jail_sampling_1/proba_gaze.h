@@ -81,6 +81,7 @@ public:
     Entry* find(uint64_t region_num);
     Entry insert(uint64_t region_num, uint64_t trigger_offset, uint64_t pc);
     Entry* erase(uint64_t region_num);
+    int get_num_valid_entries_per_set(uint64_t region_num);
 
     std::string log();
 };

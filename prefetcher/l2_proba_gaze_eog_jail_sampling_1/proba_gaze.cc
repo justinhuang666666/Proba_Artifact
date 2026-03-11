@@ -43,6 +43,11 @@ FilterTable::Entry FilterTable::insert(uint64_t region_num, uint64_t trigger_off
     return old_entry;
 }
 
+int FilterTable::get_num_valid_entries_per_set(uint64_t region_num) {
+    uint64_t key = build_key(region_num);
+    return Super::get_num_valid_entries_per_set(key);
+}
+
 FilterTable::Entry* FilterTable::erase(uint64_t region_num) {
     uint64_t key = build_key(region_num);
     return Super::erase(key);
