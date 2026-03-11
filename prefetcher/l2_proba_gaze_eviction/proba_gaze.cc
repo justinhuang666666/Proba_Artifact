@@ -567,7 +567,7 @@ std::pair<uint64_t,uint64_t> ProbaGaze::get_probs(custom_util::SaturatingCounter
         1, 5, 10, 40, 100, 100, 100, 100
     };
     static constexpr std::array<uint64_t,8> delete_probabilities = {
-        100, 100, 100, 100, 100, 60, 40, 20
+        100, 100, 100, 100, 100, 40, 20, 10
     };
     return { insert_probabilities[mode.get_cnt()], delete_probabilities[mode.get_cnt()] };
 }
