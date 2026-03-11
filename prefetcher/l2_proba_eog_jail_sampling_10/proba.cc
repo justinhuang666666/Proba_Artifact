@@ -2,6 +2,7 @@
 #include "cache.h"
 
 #include <assert.h>
+#include <array>
 
 /*
  * Proba: Spatial Memory Streaming with Probabilistic Updates

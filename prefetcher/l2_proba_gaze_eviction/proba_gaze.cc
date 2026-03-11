@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <algorithm>
+#include <array>
 
 /*
  * Proba: Spatial Memory Streaming with Probabilistic Updates
@@ -35,7 +36,7 @@ FilterTable::Entry* FilterTable::find(uint64_t region_num) {
     }
 }
 
-FilterTable::Entry* FilterTable::insert(uint64_t region_num, uint64_t trigger_offset, uint64_t pc) {
+FilterTable::Entry FilterTable::insert(uint64_t region_num, uint64_t trigger_offset, uint64_t pc) {
     uint64_t key = build_key(region_num);
     auto old_entry = Super::insert(key, {trigger_offset, pc});
     Super::rp_insert(key);
@@ -205,13 +206,13 @@ uint64_t PatternHistoryTable2::build_key(uint64_t trigger, uint64_t second) {
 }
 
 // ------------------------- PB functions ------------------------- //
-PrefetchBuffer::PrefetchBuffer(int size, int pattern_len, int debug_level = 0, int num_ways = 8) :
+PrefetchBuffer::PrefetchBuffer(int size, int pattern_len, int debug_level, int num_ways) :
     Super(size, num_ways), pattern_len(pattern_len) {
 }
 
 void PrefetchBuffer::insert(uint64_t region_num, std::vector<int> pattern) {
     uint64_t key = this->build_key(region_num);
-    auto entry = find(key);
+    Entry* entry = Super::find(key);
     if (!entry) {
         Super::insert(key, {pattern});
         Super::rp_insert(key);
@@ -282,7 +283,7 @@ uint64_t PrefetchBuffer::build_key(uint64_t region_num) {
 
 // ------------------------- ProbaGaze functions ------------------------- //
 
-ProbaGaze::ProbaGaze(int ft_size, int ft_ways, int agt_size, int agt_ways, int pht1_size, int pht1_ways, int pht2_size, int pht2_ways, int pb_size, int pb_ways, int jt_size, bool is_debug, int cpu = 0) :
+ProbaGaze::ProbaGaze(int ft_size, int ft_ways, int agt_size, int agt_ways, int pht1_size, int pht1_ways, int pht2_size, int pht2_ways, int pb_size, int pb_ways, int jt_size, bool is_debug, int cpu) :
     ft(ft_size, ft_ways), agt(agt_size, agt_ways), pht1(pht1_size, pht1_ways), pht2(pht2_size, pht2_ways), pb(pb_size, NUM_BLOCKS, 0, pb_ways), jt(jt_size), is_debug(is_debug), cpu(cpu) {
 }
 
@@ -329,7 +330,9 @@ void ProbaGaze::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
 
                 if(!use_sampling||sample){
                     auto ft_victim = ft.insert(region_num, region_offset, pc);
-                    jt.mark(ft_victim.key);
+                    if (ft_victim.valid) {
+                        jt.mark(ft_victim.key);
+                    }
                 } else {
                     jt.mark(region_num);
                     if (is_debug) std::cout << "Mark region 0x" << std::hex << region_num << std::dec << " in Jail Table" << std::endl;
@@ -366,8 +369,8 @@ void ProbaGaze::eviction(uint64_t block_num, CACHE* cache) {
     ft.erase(region_num);
     auto entry = agt.erase(region_num);
     if (entry) {
-        update_in_pht1(*entry, CACHE* cache);
-        update_in_pht2(*entry, CACHE* cache);
+        update_in_pht1(*entry, cache);
+        update_in_pht2(*entry, cache);
         if (is_debug) {
             std::cout << "In AGT, AGT erasing region: 0x" << std::hex << region_num << std::dec <<std::endl;
             std::cout << "PHT updating pc: 0x" << std::hex << entry->data.pc << std::dec << "\n" << pht1.log() << "\n" << pht2.log() <<std::endl;
@@ -416,9 +419,13 @@ void ProbaGaze::update_in_pht1(const ActiveGenerationTable::Entry& agt_entry, CA
 
         assert(count_bits_same(prediction, observation) >= 1);
 
-        uint64_t pop_count_observation             = count_bits_set(observation) - 1;
-        uint64_t pop_count_prediction              = count_bits_set(prediction) - 1;
-        uint64_t same_count_observation_prediction = count_bits_same(prediction, observation) - 1;
+        auto safe_minus_one = [](uint32_t x) -> uint64_t {
+            return (x > 0) ? static_cast<uint64_t>(x - 1) : 0ULL;
+        };
+        
+        uint64_t pop_count_observation = safe_minus_one(count_bits_set(observation));
+        uint64_t pop_count_prediction = safe_minus_one(count_bits_set(prediction));
+        uint64_t same_count_observation_prediction = safe_minus_one(count_bits_same(prediction, observation));
 
         uint64_t local_accuracy = 0;
         {
@@ -484,9 +491,13 @@ void ProbaGaze::update_in_pht2(const ActiveGenerationTable::Entry& agt_entry, CA
 
         assert(count_bits_same(prediction, observation) >= 2);
 
-        uint64_t pop_count_observation             = count_bits_set(observation) - 2;
-        uint64_t pop_count_prediction              = count_bits_set(prediction) - 2;
-        uint64_t same_count_observation_prediction = count_bits_same(prediction, observation) - 2;
+        auto safe_minus_two = [](uint32_t x) -> uint64_t {
+            return (x > 0) ? static_cast<uint64_t>(x - 2) : 0ULL;
+        };
+        
+        uint64_t pop_count_observation = safe_minus_two(count_bits_set(observation));
+        uint64_t pop_count_prediction = safe_minus_two(count_bits_set(prediction));
+        uint64_t same_count_observation_prediction = safe_minus_two(count_bits_same(prediction, observation));
 
         uint64_t local_accuracy = 0;
         {

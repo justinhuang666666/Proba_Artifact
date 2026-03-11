@@ -79,7 +79,7 @@ public:
     FilterTable(int size, int num_ways);
 
     Entry* find(uint64_t region_num);
-    Entry* insert(uint64_t region_num, uint64_t trigger_offset, uint64_t pc);
+    Entry insert(uint64_t region_num, uint64_t trigger_offset, uint64_t pc);
     Entry* erase(uint64_t region_num);
 
     std::string log();
@@ -211,7 +211,6 @@ private:
 
     uint64_t build_key(uint64_t region_num) {
         uint64_t key = region_num & ((1ULL << 37) - 1);
-        // return custom_util::hash_index(key, this->index_len);
         return key;
     }
 
@@ -261,6 +260,7 @@ private:
     void update_in_pht1(const ActiveGenerationTable::Entry& agt_entry, CACHE* cache);
     void update_in_pht2(const ActiveGenerationTable::Entry& agt_entry, CACHE* cache);
 
+    uint64_t sample_rate = 10;
     uint64_t proba_acc_thr1 = 50;
     uint64_t proba_acc_thr2 = 50;
 
