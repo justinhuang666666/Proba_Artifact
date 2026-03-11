@@ -63,9 +63,10 @@ public:
                         pf_metadata = __add_pf_sour_level(pf_metadata, 1);
                         pf_metadata = __add_pf_dest_level(pf_metadata, 1);
                         int ok = cache->prefetch_line(0, base_addr, pf_address, true, pf_metadata);
-                        // assert(ok == 1);
-                        pf_issued += 1;
-                        pattern[pf_offset] = 0;
+                        if (ok) {
+                            pf_issued += 1;
+                            pattern[pf_offset] = 0;
+                        }
                     } else {
                         /* prefetching limit is reached */
                         return pf_issued;

@@ -120,7 +120,7 @@ private:
 public:
     bool warmup;
 
-    PrefetchBuffer(int size, int pattern_len, int debug_level, int num_ways);
+    PrefetchBuffer(int size, int pattern_len, int debug_level=0, int num_ways=8);
     void insert(uint64_t region_num, std::vector<int> pattern);
     int prefetch(CACHE* cache, uint64_t block_num);
 

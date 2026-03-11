@@ -97,8 +97,10 @@ void PatternHistoryTable::update(uint64_t pc, const std::vector<int> &pattern, c
 
 PatternHistoryTable::Entry* PatternHistoryTable::find(uint64_t pc) {
     uint64_t key = build_key(pc);
-    // std::cout<<"pc key: "<<std::hex<<key<<std::dec<<std::endl;
-    return Super::find(key);
+    Entry* entry = Super::find(key);
+    if (entry)
+        Super::rp_promote(key);
+    return entry;
 }
 
 std::string PatternHistoryTable::log() {
@@ -117,7 +119,7 @@ uint64_t PatternHistoryTable::build_key(uint64_t pc) {
 }
 
 // ------------------------- PB functions ------------------------- //
-PrefetchBuffer::PrefetchBuffer(int size, int pattern_len, int debug_level = 0, int num_ways = 8) :
+PrefetchBuffer::PrefetchBuffer(int size, int pattern_len, int debug_level, int num_ways) :
     Super(size, num_ways), pattern_len(pattern_len), debug_level(debug_level) {
         if (this->debug_level >= 1)
             std::cerr << "PrefetchBuffer::PrefetchBuffer(size=" << size << ", pattern_len=" << pattern_len
@@ -159,9 +161,10 @@ int PrefetchBuffer::prefetch(CACHE* cache, uint64_t block_num) {
                     pf_metadata = __add_pf_sour_level(pf_metadata, 2);
                     pf_metadata = __add_pf_dest_level(pf_metadata, 2);
                     int ok = cache->prefetch_line(0, base_addr, pf_address, true, pf_metadata);
-                    // assert(ok == 1);
-                    pf_issued += 1;
-                    pattern[pf_offset] = 0;
+                    if (ok) {
+                        pf_issued += 1;
+                        pattern[pf_offset] = 0;
+                    }
                 } else {
                     /* prefetching limit is reached */
                     return pf_issued;
@@ -190,7 +193,7 @@ uint64_t PrefetchBuffer::build_key(uint64_t region_num) {
 // ------------------------- Proba functions ------------------------- //
 
 Proba::Proba(int agt_size, int agt_ways, int pht_size, int pht_ways, int jt_size, int pb_size, int pb_ways, bool is_debug, int cpu = 0) :
-    agt(agt_size, agt_ways), pht(pht_size, pht_ways), jt(jt_size), pb(pb_size, NUM_BLOCKS), is_debug(is_debug), cpu(cpu) {
+    agt(agt_size, agt_ways), pht(pht_size, pht_ways), jt(jt_size), pb(pb_size, NUM_BLOCKS, 0, pb_ways), is_debug(is_debug), cpu(cpu) {
 }
 
 void Proba::ewma_update(uint64_t& ewma, uint64_t sample, int alpha_num, int alpha_den)
@@ -208,7 +211,7 @@ std::pair<uint64_t,uint64_t> Proba::get_probs(custom_util::SaturatingCounter mod
         1, 5, 10, 40, 100, 100, 100, 100
     };
     static constexpr std::array<uint64_t,8> delete_probabilities = {
-        100, 100, 100, 100, 100, 60, 40, 20
+        100, 100, 100, 100, 100, 40, 20, 10
     };
     return { insert_probabilities[mode.get_cnt()], delete_probabilities[mode.get_cnt()] };
 }
@@ -231,7 +234,7 @@ void Proba::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
             }
             
             auto pht_entry = pht.find(pc);
-            // TODO: update replacement?
+
             if(pht_entry){
                 if (is_debug) std::cout << "Original prefetch pattern:  " <<custom_util::pattern_to_string(pht_entry->data.pattern)<< std::endl;
                 pb.insert(region_num, rotate(pht_entry->data.pattern, region_offset));
@@ -334,65 +337,68 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
                 std::cout << "Prediction:         " << custom_util::pattern_to_string(pht_entry->data.pattern) <<std::endl;
             }
 
-            uint64_t pop_count_observation             = count_bits_set(observation) - 1;
-            uint64_t pop_count_prediction              = count_bits_set(prediction) - 1;
-            uint64_t same_count_observation_prediction = count_bits_same(prediction, observation) - 1;
+            auto safe_minus_one = [](uint32_t x) -> uint64_t {
+                return (x > 0) ? static_cast<uint64_t>(x - 1) : 0ULL;
+            };
+            
+            uint64_t pop_count_observation = safe_minus_one(count_bits_set(observation));
+            uint64_t pop_count_prediction = safe_minus_one(count_bits_set(prediction));
+            uint64_t same_count_observation_prediction = safe_minus_one(count_bits_same(prediction, observation));
 
             if (is_debug) {
                 std::cout << "same_count_observation_prediction: " << std::dec << same_count_observation_prediction <<std::endl;
                 std::cout << "pop_count_prediction:              " << std::dec << pop_count_prediction << std::endl;
+                std::cout << "pop_count_observation:              " << std::dec << pop_count_observation << std::endl;
             }
 
             // EWMA
-            if (num_valid_update == ewma_window_size) {
+            global_accurate_pf_sum += same_count_observation_prediction;
+            global_pf_sum += pop_count_prediction;
+            num_valid_update++;
+            total_num_valid_update++;
+            
+            if (num_valid_update >= ewma_window_size) {
                 uint64_t window_accuracy_estimate = 0;
-
+            
                 if (global_pf_sum > 0) {
                     window_accuracy_estimate =
-                        (100ULL * static_cast<uint64_t>(global_accurate_pf_sum)) /
-                        static_cast<uint64_t>(global_pf_sum);
+                        (100ULL * global_accurate_pf_sum) / global_pf_sum;
                 }
-
+            
                 uint64_t cur_pf_useful = static_cast<uint64_t>(cache->sim_stats.pf_useful);
                 uint64_t cur_pf_unused = static_cast<uint64_t>(cache->sim_stats.pf_useless);
-
+            
                 uint64_t window_pf_useful = 0;
                 uint64_t window_pf_unused = 0;
-
-                if ((cur_pf_useful >= prev_pf_useful) && (cur_pf_unused >= prev_pf_unused)) {
+            
+                if (cur_pf_useful >= prev_pf_useful && cur_pf_unused >= prev_pf_unused) {
                     window_pf_useful = cur_pf_useful - prev_pf_useful;
                     window_pf_unused = cur_pf_unused - prev_pf_unused;
                 }
-
+            
                 uint64_t window_global_accuracy = 0;
                 if (window_pf_useful + window_pf_unused > 0) {
                     window_global_accuracy =
-                        (100ULL * window_pf_useful) /
-                        (window_pf_useful + window_pf_unused);
+                        (100ULL * window_pf_useful) / (window_pf_useful + window_pf_unused);
                 }
-
-                if (total_num_valid_update == ewma_window_size) {
+            
+                bool first_window = (total_num_valid_update == num_valid_update);
+            
+                if (first_window) {
                     ewma_accuracy_estimate = window_accuracy_estimate;
-                    ewma_global_accuracy   = window_global_accuracy;
-                } else {
-                    if((cur_pf_useful >= prev_pf_useful)&&(cur_pf_unused >= prev_pf_unused)) {
-                        ewma_update(ewma_accuracy_estimate, window_accuracy_estimate, ewma_alpha_num, ewma_alpha_den);
-                        ewma_update(ewma_global_accuracy, window_global_accuracy, ewma_alpha_num, ewma_alpha_den);
-                    }
+                    ewma_global_accuracy = window_global_accuracy;
+                } else if (cur_pf_useful >= prev_pf_useful && cur_pf_unused >= prev_pf_unused) {
+                    ewma_update(ewma_accuracy_estimate, window_accuracy_estimate,
+                                ewma_alpha_num, ewma_alpha_den);
+                    ewma_update(ewma_global_accuracy, window_global_accuracy,
+                                ewma_alpha_num, ewma_alpha_den);
                 }
-
+            
                 global_accurate_pf_sum = 0;
                 global_pf_sum = 0;
-
                 prev_pf_useful = cur_pf_useful;
                 prev_pf_unused = cur_pf_unused;
-
                 num_valid_update = 0;
-            } else {
-                global_accurate_pf_sum += same_count_observation_prediction;
-                global_pf_sum += pop_count_prediction;
-
-                num_valid_update++;
             }
 
             uint64_t local_accuracy = 0;
@@ -407,24 +413,24 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
 
             uint64_t estimated_global_accuracy = ewma_accuracy_estimate;
 
-            uint64_t local_acc_thr       = proba_acc_thr;
-            uint64_t corrected_accuracy  = local_accuracy;
-
-            if (is_accuracy_targeter&&(ewma_global_accuracy!=0)) {
-                uint64_t act = ewma_global_accuracy;
-                uint64_t thr = proba_acc_thr;
-                local_acc_thr = 2*thr - act;
+            int64_t local_acc_thr = proba_acc_thr;
+            int64_t corrected_accuracy = static_cast<int64_t>(local_accuracy);
+            
+            if (is_accuracy_targeter && (ewma_global_accuracy != 0)) {
+                int64_t act = static_cast<int64_t>(ewma_global_accuracy);
+                int64_t thr = static_cast<int64_t>(proba_acc_thr);
+                local_acc_thr = 2 * thr - act;
             }
-
+            
             if (is_accuracy_correction) {
-                uint64_t loc = local_accuracy;
-                uint64_t act = ewma_global_accuracy;
-                uint64_t est = estimated_global_accuracy;
+                int64_t loc = static_cast<int64_t>(local_accuracy);
+                int64_t act = static_cast<int64_t>(ewma_global_accuracy);
+                int64_t est = static_cast<int64_t>(estimated_global_accuracy);
                 corrected_accuracy = loc + (act - est);
             }
-
-            corrected_accuracy = std::clamp<uint64_t>(corrected_accuracy, 0, 100);
-            local_acc_thr      = std::clamp<uint64_t>(local_acc_thr, 0, 100);
+            
+            local_acc_thr = std::clamp<int64_t>(local_acc_thr, 0, 100);
+            corrected_accuracy = std::clamp<int64_t>(corrected_accuracy, 0, 100);
 
             if (is_debug) {
                 std::cout << "Local Accuracy:            " << std::dec << local_accuracy <<std::endl;

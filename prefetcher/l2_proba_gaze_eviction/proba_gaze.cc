@@ -35,10 +35,11 @@ FilterTable::Entry* FilterTable::find(uint64_t region_num) {
     }
 }
 
-void FilterTable::insert(uint64_t region_num, uint64_t trigger_offset, uint64_t pc) {
+FilterTable::Entry* FilterTable::insert(uint64_t region_num, uint64_t trigger_offset, uint64_t pc) {
     uint64_t key = build_key(region_num);
-    auto entry = Super::insert(key, {trigger_offset, pc});
+    auto old_entry = Super::insert(key, {trigger_offset, pc});
     Super::rp_insert(key);
+    return old_entry;
 }
 
 FilterTable::Entry* FilterTable::erase(uint64_t region_num) {
@@ -53,7 +54,7 @@ std::string FilterTable::log() {
 
 uint64_t FilterTable::build_key(uint64_t region_num) {
     uint64_t key = region_num & ((1ULL << 37) - 1);
-    return custom_util::hash_index(key, this->index_len);
+    return key;
 }
 
 void FilterTable::write_data(Entry& entry, custom_util::Table& table, int row) {
@@ -115,7 +116,7 @@ void ActiveGenerationTable::write_data(Entry& entry, custom_util::Table& table, 
 
 uint64_t ActiveGenerationTable::build_key(uint64_t region_num) {
     uint64_t key = region_num & ((1ULL << 37) - 1);
-    return custom_util::hash_index(key, this->index_len);
+    return key;
 }
 
 // ------------------------- PHT 1 functions ------------------------- //
@@ -250,9 +251,10 @@ int PrefetchBuffer::prefetch(CACHE* cache, uint64_t block_num) {
                     pf_metadata = __add_pf_sour_level(pf_metadata, 2);
                     pf_metadata = __add_pf_dest_level(pf_metadata, 2);
                     int ok = cache->prefetch_line(0, base_addr, pf_address, true, pf_metadata);
-                    // assert(ok == 1);
-                    pf_issued += 1;
-                    pattern[pf_offset] = 0;
+                    if (ok) {
+                        pf_issued += 1;
+                        pattern[pf_offset] = 0;
+                    }
                 } else {
                     /* prefetching limit is reached */
                     return pf_issued;
@@ -280,8 +282,8 @@ uint64_t PrefetchBuffer::build_key(uint64_t region_num) {
 
 // ------------------------- ProbaGaze functions ------------------------- //
 
-ProbaGaze::ProbaGaze(int ft_size, int ft_ways, int agt_size, int agt_ways, int pht1_size, int pht1_ways, int pht2_size, int pht2_ways, int pb_size, int pb_ways, int cpu = 0) :
-    ft(ft_size, ft_ways), agt(agt_size, agt_ways), pht1(pht1_size, pht1_ways), pht2(pht2_size, pht2_ways), pb(pb_size, NUM_BLOCKS, 0, pb_ways), cpu(cpu) {
+ProbaGaze::ProbaGaze(int ft_size, int ft_ways, int agt_size, int agt_ways, int pht1_size, int pht1_ways, int pht2_size, int pht2_ways, int pb_size, int pb_ways, int jt_size, bool is_debug, int cpu = 0) :
+    ft(ft_size, ft_ways), agt(agt_size, agt_ways), pht1(pht1_size, pht1_ways), pht2(pht2_size, pht2_ways), pb(pb_size, NUM_BLOCKS, 0, pb_ways), jt(jt_size), is_debug(is_debug), cpu(cpu) {
 }
 
 void ProbaGaze::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
@@ -289,19 +291,55 @@ void ProbaGaze::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
     uint64_t region_offset = __region_offset(block_num);
     auto agt_entry = this->agt.set_pattern(region_num, region_offset);
     if (agt_entry) {
+        if (is_debug) {
+            std::cout << "Matching AGT entry, appending offset" <<std::endl;
+            std::cout << "pc: 0x" <<std::hex << pc << ", addr: 0x" << block_num << ", region: 0x" << region_num << ", offset: " << std::dec << region_offset << std::endl;
+        }
         return;
     } else {
         auto ft_entry = ft.find(region_num);
         if (!ft_entry) {
-            auto pht1_entry = pht1.find(pc);
-            if(pht1_entry){
-                pb.insert(region_num, rotate(pht1_entry->data.pattern, region_offset));
+            if(!this->jt.in_jail(region_num)||!use_jail_table) {
+                if (is_debug) {
+                    std::cout << "Trigger access for PHT 1" <<std::endl;
+                    std::cout << "pc: 0x" <<std::hex << pc << ", addr: 0x" << block_num << ", region: 0x" << region_num << ", offset: " << std::dec << region_offset << std::endl;
+                }
+
+                auto pht1_entry = pht1.find(pc);
+                if(pht1_entry){
+                    pb.insert(region_num, rotate(pht1_entry->data.pattern, region_offset));
+                }
+                
+                int num_valid_entries = ft.get_num_valid_entries_per_set(region_num);
+                
+                bool sample = false;
+
+                if(num_valid_entries<=(FT_WAY/2)){
+                    if (is_debug) std::cout << "FT occupancy smaller than 50 percent, no sampling" <<std::endl;
+                    sample=true;
+                } else {
+                    if (is_debug) std::cout << "FT occupancy greater than 50 percent, sampling" <<std::endl;
+                    if(random_gen() < sample_rate){
+                        sample=true;
+                        if (is_debug) std::cout << "Region is sampled" <<std::endl;
+                    } else {
+                        if (is_debug) std::cout << "Region is not sampled" <<std::endl;
+                    }
+                }
+
+                if(!use_sampling||sample){
+                    auto ft_victim = ft.insert(region_num, region_offset, pc);
+                    jt.mark(ft_victim.key);
+                } else {
+                    jt.mark(region_num);
+                    if (is_debug) std::cout << "Mark region 0x" << std::hex << region_num << std::dec << " in Jail Table" << std::endl;
+                }
             }
-
-            ft.insert(region_num, region_offset, pc);
-
-            return;
         } else if (ft_entry->data.trigger_offset != region_offset) { // SECOND OFFSET
+            if (is_debug) {
+                std::cout << "Trigger access for PHT 2" <<std::endl;
+                std::cout << "pc: 0x" <<std::hex << pc << ", addr: 0x" << block_num << ", region: 0x" << region_num << ", offset: " << std::dec << region_offset << std::endl;
+            }
             // 1. find pht2 pattern
             auto pht2_entry = pht2.find(ft_entry->data.trigger_offset, region_offset);
             // pattern empty?
@@ -315,20 +353,30 @@ void ProbaGaze::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
             auto agt_victim = agt.insert(region_num, ft_entry->data.trigger_offset, region_offset, ft_entry->data.pc);
             ft.erase(region_num);
             if (agt_victim.valid) {
-                update_in_pht1(agt_victim);
-                update_in_pht2(agt_victim);
+                jt.mark(agt_victim.key);
+            //     update_in_pht1(agt_victim);
+            //     update_in_pht2(agt_victim);
             }
         }
     }
 }
 
-void ProbaGaze::eviction(uint64_t block_num) {
+void ProbaGaze::eviction(uint64_t block_num, CACHE* cache) {
     uint64_t region_num = block_num >> (LOG2_REGION_SIZE - LOG2_BLOCK_SIZE);
     ft.erase(region_num);
     auto entry = agt.erase(region_num);
     if (entry) {
-        update_in_pht1(*entry);
-        update_in_pht2(*entry);
+        update_in_pht1(*entry, CACHE* cache);
+        update_in_pht2(*entry, CACHE* cache);
+        if (is_debug) {
+            std::cout << "In AGT, AGT erasing region: 0x" << std::hex << region_num << std::dec <<std::endl;
+            std::cout << "PHT updating pc: 0x" << std::hex << entry->data.pc << std::dec << "\n" << pht1.log() << "\n" << pht2.log() <<std::endl;
+        }
+    } else {
+        jt.unmark(region_num);
+        if (is_debug) {
+            std::cout << "Not in AGT, unmark region 0x" << std::hex << region_num << std::dec << " in Jail Table" << std::endl;
+        }
     }
 }
 
@@ -359,7 +407,7 @@ void ProbaGaze::log() {
 }
 
 
-void ProbaGaze::update_in_pht1(const ActiveGenerationTable::Entry& agt_entry) {
+void ProbaGaze::update_in_pht1(const ActiveGenerationTable::Entry& agt_entry, CACHE* cache) {
     auto pht1_entry = pht1.find(agt_entry.data.pc);
     if(pht1_entry){
         const std::vector<int> &observation = rotate(pattern_bool2int(agt_entry.data.pattern), -agt_entry.data.trigger_offset);
@@ -427,7 +475,7 @@ void ProbaGaze::update_in_pht1(const ActiveGenerationTable::Entry& agt_entry) {
 }
 
 
-void ProbaGaze::update_in_pht2(const ActiveGenerationTable::Entry& agt_entry) {
+void ProbaGaze::update_in_pht2(const ActiveGenerationTable::Entry& agt_entry, CACHE* cache) {
     auto pht2_entry = pht2.find(agt_entry.data.trigger_offset, agt_entry.data.second_offset);
     if(pht2_entry){
         const std::vector<int> &observation = pattern_bool2int(agt_entry.data.pattern);
@@ -563,7 +611,7 @@ uint32_t count_bits_same(const std::vector<int> &pattern1, const std::vector<int
 void CACHE::prefetcher_initialize() {
     std::cout << NAME << " Gaze NEW NEW prefetcher" << std::endl;
 
-    prefetchers = std::vector<probagaze::ProbaGaze>(NUM_CPUS, probagaze::ProbaGaze(probagaze::FT_SIZE, probagaze::FT_WAY, probagaze::AGT_SIZE, probagaze::AGT_WAY, probagaze::PHT1_SIZE, probagaze::PHT1_WAY, probagaze::PHT2_SIZE, probagaze::PHT2_WAY, probagaze::PB_SIZE, probagaze::PB_WAY, cpu));
+    prefetchers = std::vector<probagaze::ProbaGaze>(NUM_CPUS, probagaze::ProbaGaze(probagaze::FT_SIZE, probagaze::FT_WAY, probagaze::AGT_SIZE, probagaze::AGT_WAY, probagaze::PHT1_SIZE, probagaze::PHT1_WAY, probagaze::PHT2_SIZE, probagaze::PHT2_WAY, probagaze::PB_SIZE, probagaze::PB_WAY, probagaze::JT_SIZE, probagaze::IS_DEBUG, cpu));
 }
 
 uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint32_t metadata_in) {

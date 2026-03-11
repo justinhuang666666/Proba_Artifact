@@ -354,7 +354,7 @@ public:
                             pf_metadata = __add_pf_dest_level(pf_metadata, 2);
                         }
                         int ok = cache->prefetch_line(0, base_addr, pf_address, pattern[pf_offset] == 1 ? true : false, pf_metadata);
-                        pf_issued += ok;
+
                         if (ok && !cache->warmup) {
                             if (pattern[pf_offset] == 1) {
                                 prefetch_to_l1++;
@@ -362,7 +362,11 @@ public:
                                 prefetch_to_l2++;
                             }
                         }
-                        pattern[pf_offset] = 0;
+
+                        if (ok) {
+                            pf_issued += 1;
+                            pattern[pf_offset] = 0;
+                        }
                     } else {
                         DEBUG(cout << std::endl;)
                         return pf_issued;
