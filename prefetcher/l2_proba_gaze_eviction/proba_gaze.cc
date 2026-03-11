@@ -186,7 +186,7 @@ void PatternHistoryTable2::update(uint64_t trigger, uint64_t second, const std::
 }
 
 PatternHistoryTable2::Entry* PatternHistoryTable2::find(uint64_t trigger, uint64_t second) {
-    uint64_t key = build_key(pc);
+    uint64_t key = build_key(trigger, second);
     Entry* entry = Super::find(key);
     if (entry)
         Super::rp_promote(key);
