@@ -38,7 +38,8 @@ constexpr int AGT_SIZE = 64, AGT_WAY = 8;
 constexpr int PHT_WAY = 16;
 constexpr int PHT_SIZE = 256;
 constexpr int PB_SIZE = 32, PB_WAY = 8;
-
+constexpr int PC_WIDTH = 16;
+constexpr int PROBA_HASH_TYPE = 2;
 
 constexpr int JT_SIZE = 4096;
 
@@ -89,11 +90,12 @@ class PatternHistoryTable : public PHT_TYPE<PatternHistoryTableData> {
     typedef PHT_TYPE<PatternHistoryTableData> Super;
 
 private:
+    int pc_width;
     void write_data(Entry& entry, custom_util::Table& table, int row);
     uint64_t build_key(uint64_t pc);
 
 public:
-    PatternHistoryTable(int size, int num_ways);
+    PatternHistoryTable(int size, int num_ways, int pc_width);
     void insert(uint64_t pc, const std::vector<int> &pattern); 
     void update(uint64_t pc, const std::vector<int> &pattern, const custom_util::SaturatingCounter &mode);
     Entry* find(uint64_t pc);
@@ -186,7 +188,7 @@ private:
     JailTable jt;
     PrefetchBuffer pb;
 
-    int sample_rate = 20;
+    int sample_rate = 1;
     int proba_acc_thr = 50;
 
     int ewma_window_size = 1000;
@@ -209,7 +211,7 @@ private:
 
     bool use_sampling = true;
     bool use_jail_table = true;
-    bool use_only_training_on_eog = true;
+    bool use_only_training_on_eog = false;
 
     bool is_debug;
 
@@ -231,6 +233,8 @@ public:
     void access(uint64_t block_num, uint64_t pc, CACHE* cache);
     void eviction(uint64_t block_num, CACHE* cache);
     int prefetch(CACHE* cache, uint64_t block_num);
+
+    uint32_t get_hash(uint32_t key);
 
     void log();
 };

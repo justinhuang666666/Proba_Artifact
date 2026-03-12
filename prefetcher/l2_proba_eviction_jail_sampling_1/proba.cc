@@ -74,8 +74,8 @@ uint64_t ActiveGenerationTable::build_key(uint64_t region_num) {
 
 
 // ------------------------- PHT functions ------------------------- //
-PatternHistoryTable::PatternHistoryTable(int size, int num_ways) :
-    Super(size, num_ways) {
+PatternHistoryTable::PatternHistoryTable(int size, int num_ways, int pc_width) :
+    Super(size, num_ways), pc_width(pc_width) {
     std::cout << "Pattern Table index_len: " << Super::index_len << std::endl;
 }
 
@@ -115,8 +115,15 @@ void PatternHistoryTable::write_data(Entry& entry, custom_util::Table& table, in
     table.set_cell(row, 2, static_cast<int>(entry.data.mode.get_cnt()));
 }
 
+// uint64_t PatternHistoryTable::build_key(uint64_t pc) {
+//     return custom_util::hash_index(pc, this->index_len);
+// }
 uint64_t PatternHistoryTable::build_key(uint64_t pc) {
-    return custom_util::hash_index(pc, this->index_len);
+    uint32_t folded_pc = custom_util::folded_xor(pc, 2);  
+    uint32_t hashed_key = get_hash(folded_pc);
+    uint32_t mask = ((1 << this->pc_width) - 1);
+
+    return hashed_key & mask;
 }
 
 // ------------------------- PB functions ------------------------- //
@@ -193,8 +200,8 @@ uint64_t PrefetchBuffer::build_key(uint64_t region_num) {
 
 // ------------------------- Proba functions ------------------------- //
 
-Proba::Proba(int agt_size, int agt_ways, int pht_size, int pht_ways, int jt_size, int pb_size, int pb_ways, bool is_debug, int cpu = 0) :
-    agt(agt_size, agt_ways), pht(pht_size, pht_ways), jt(jt_size), pb(pb_size, NUM_BLOCKS, 0, pb_ways), is_debug(is_debug), cpu(cpu) {
+Proba::Proba(int agt_size, int agt_ways, int pht_size, int pht_ways, int pc_width, int jt_size, int pb_size, int pb_ways, bool is_debug, int cpu = 0) :
+    agt(agt_size, agt_ways), pht(pht_size, pht_ways, pc_width), jt(jt_size), pb(pb_size, NUM_BLOCKS, 0, pb_ways), is_debug(is_debug), cpu(cpu) {
 }
 
 void Proba::ewma_update(uint64_t& ewma, uint64_t sample, int alpha_num, int alpha_den)
@@ -492,6 +499,26 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
 
 }
 
+uint32_t Proba::get_hash(uint32_t key) {
+    switch (proba::PROBA_HASH_TYPE) {
+    case 1: return key;
+    case 2: return custom_util::HashZoo::jenkins(key);
+    case 3: return custom_util::HashZoo::knuth(key);
+    case 4: return custom_util::HashZoo::murmur3(key);
+    case 5: return custom_util::HashZoo::jenkins32(key);
+    case 6: return custom_util::HashZoo::hash32shift(key);
+    case 7: return custom_util::HashZoo::hash32shiftmult(key);
+    case 8: return custom_util::HashZoo::hash64shift(key);
+    case 9: return custom_util::HashZoo::hash5shift(key);
+    case 10: return custom_util::HashZoo::hash7shift(key);
+    case 11: return custom_util::HashZoo::Wang6shift(key);
+    case 12: return custom_util::HashZoo::Wang5shift(key);
+    case 13: return custom_util::HashZoo::Wang4shift(key);
+    case 14: return custom_util::HashZoo::Wang3shift(key);
+    default: assert(false);
+    }
+}
+
 void Proba::set_warmup(bool warmup) {
     this->warmup = warmup;
     this->pb.warmup = warmup;
@@ -548,7 +575,7 @@ uint32_t count_bits_same(const std::vector<int> &pattern1, const std::vector<int
 void CACHE::prefetcher_initialize() {
     std::cout << NAME << " Proba NEW NEW prefetcher" << std::endl;
 
-    prefetchers = std::vector<proba::Proba>(NUM_CPUS, proba::Proba(proba::AGT_SIZE, proba::AGT_WAY, proba::PHT_SIZE, proba::PHT_WAY, proba::JT_SIZE, proba::PB_SIZE, proba::PB_WAY, proba::DEBUG, cpu));
+    prefetchers = std::vector<proba::Proba>(NUM_CPUS, proba::Proba(proba::AGT_SIZE, proba::AGT_WAY, proba::PHT_SIZE, proba::PHT_WAY, proba::PC_WIDTH, proba::JT_SIZE, proba::PB_SIZE, proba::PB_WAY, proba::DEBUG, cpu));
 }
 
 uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint32_t metadata_in) {
