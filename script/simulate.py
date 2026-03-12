@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from _SPEC2017_def import SPEC2017_shortcode, SPEC2017_path
 
 WARMUP_INSTRUCTIONS = 50000000
-SIMULATION_INSTRUCTIONS = 200000000
+SIMULATION_INSTRUCTIONS = 100000000
 
 PREFETCHERS = [
     "no",
@@ -24,10 +24,11 @@ PREFETCHERS = [
     "l2_gaze_eviction",
     "l2_proba_eviction",
     "l2_proba_eog_jail_sampling_1",
+    "l2_proba_eog_jail_sampling_1_calibration",
     "l2_proba_eog_jail_sampling_5",
     "l2_proba_eog_jail_sampling_10",
-    "l2_proba_eog_jail_sampling_20",
-    "l2_proba_eog_jail_sampling_1_calibration",
+    "l2_proba_eviction_jail_sampling_1",
+    "l2_proba_eviction_jail_sampling_1_calibration",
     "l2_proba_gaze_eog_jail_sampling_1",
 ]
 
