@@ -126,6 +126,26 @@ uint64_t PatternHistoryTable::build_key(uint64_t pc) {
     return hashed_key & mask;
 }
 
+uint32_t PatternHistoryTable::get_hash(uint32_t key) {
+    switch (proba::PROBA_HASH_TYPE) {
+    case 1: return key;
+    case 2: return custom_util::HashZoo::jenkins(key);
+    case 3: return custom_util::HashZoo::knuth(key);
+    case 4: return custom_util::HashZoo::murmur3(key);
+    case 5: return custom_util::HashZoo::jenkins32(key);
+    case 6: return custom_util::HashZoo::hash32shift(key);
+    case 7: return custom_util::HashZoo::hash32shiftmult(key);
+    case 8: return custom_util::HashZoo::hash64shift(key);
+    case 9: return custom_util::HashZoo::hash5shift(key);
+    case 10: return custom_util::HashZoo::hash7shift(key);
+    case 11: return custom_util::HashZoo::Wang6shift(key);
+    case 12: return custom_util::HashZoo::Wang5shift(key);
+    case 13: return custom_util::HashZoo::Wang4shift(key);
+    case 14: return custom_util::HashZoo::Wang3shift(key);
+    default: assert(false);
+    }
+}
+
 // ------------------------- PB functions ------------------------- //
 PrefetchBuffer::PrefetchBuffer(int size, int pattern_len, int debug_level, int num_ways) :
     Super(size, num_ways), pattern_len(pattern_len), debug_level(debug_level) {
@@ -497,26 +517,6 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
         }
     }
 
-}
-
-uint32_t Proba::get_hash(uint32_t key) {
-    switch (proba::PROBA_HASH_TYPE) {
-    case 1: return key;
-    case 2: return custom_util::HashZoo::jenkins(key);
-    case 3: return custom_util::HashZoo::knuth(key);
-    case 4: return custom_util::HashZoo::murmur3(key);
-    case 5: return custom_util::HashZoo::jenkins32(key);
-    case 6: return custom_util::HashZoo::hash32shift(key);
-    case 7: return custom_util::HashZoo::hash32shiftmult(key);
-    case 8: return custom_util::HashZoo::hash64shift(key);
-    case 9: return custom_util::HashZoo::hash5shift(key);
-    case 10: return custom_util::HashZoo::hash7shift(key);
-    case 11: return custom_util::HashZoo::Wang6shift(key);
-    case 12: return custom_util::HashZoo::Wang5shift(key);
-    case 13: return custom_util::HashZoo::Wang4shift(key);
-    case 14: return custom_util::HashZoo::Wang3shift(key);
-    default: assert(false);
-    }
 }
 
 void Proba::set_warmup(bool warmup) {
