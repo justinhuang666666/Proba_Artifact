@@ -93,6 +93,7 @@ private:
     int pc_width;
     void write_data(Entry& entry, custom_util::Table& table, int row);
     uint64_t build_key(uint64_t pc);
+    uint32_t get_hash(uint32_t key);
 
 public:
     PatternHistoryTable(int size, int num_ways, int pc_width);
@@ -224,7 +225,7 @@ public:
     int global_level = 0;
     bool warmup;
 
-    Proba(int agt_size, int agt_ways, int pht_size, int pht_ways, int jt_size, int pb_size, int pb_ways, bool is_debug, int cpu);
+    Proba(int agt_size, int agt_ways, int pht_size, int pht_ways, int pc_width, int jt_size, int pb_size, int pb_ways, bool is_debug, int cpu);
 
     void set_warmup(bool warmup);
 
