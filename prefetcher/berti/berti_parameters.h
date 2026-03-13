@@ -42,7 +42,7 @@ namespace berti_space {
  *                              SIZES                                        *
  *****************************************************************************/
 // BERTI
-#define BERTI_TABLE_SIZE (64) // Big enough to fit all entries
+#define BERTI_TABLE_SIZE (16) // Big enough to fit all entries
 #define BERTI_TABLE_DELTA_SIZE (16)
 
 // HISTORY
@@ -72,12 +72,12 @@ namespace berti_space {
  *                              MASKS                                        *
  *****************************************************************************/
 #define IP_MASK (0xFFFFF)
-#define SIZE_IP_MASK (64)
+#define SIZE_IP_MASK (20)
 #define TIME_MASK (0xFFFF)
 #define LAT_MASK (0xFFF)
 #define ADDR_MASK (0xFFFFFF)
 #define DELTA_MASK (7)
-#define DELTA_MASK (12) // 128 pages
+// #define DELTA_MASK (12) // 128 pages
 #define TABLE_SET_MASK (0x7)
 
 /*****************************************************************************
