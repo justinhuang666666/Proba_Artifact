@@ -457,8 +457,6 @@ void Proba::update_in_opt(const ActiveGenerationTable::Entry& agt_entry, bool is
 
             if (is_debug) {
                 std::cout << "Local Accuracy:            " << std::dec << local_accuracy <<std::endl;
-                std::cout << "Actual Global Accuracy:    " << std::dec << ewma_global_accuracy <<std::endl;
-                std::cout << "Estimated Global Accuracy: " << std::dec << estimated_global_accuracy <<std::endl;
                 std::cout << "Corrected Accuracy:        " << std::dec << corrected_accuracy <<std::endl;
             }
 
@@ -561,8 +559,6 @@ void Proba::update_in_ppt(const ActiveGenerationTable::Entry& agt_entry, bool is
 
             if (is_debug) {
                 std::cout << "Local Accuracy:            " << std::dec << local_accuracy <<std::endl;
-                std::cout << "Actual Global Accuracy:    " << std::dec << ewma_global_accuracy <<std::endl;
-                std::cout << "Estimated Global Accuracy: " << std::dec << estimated_global_accuracy <<std::endl;
                 std::cout << "Corrected Accuracy:        " << std::dec << corrected_accuracy <<std::endl;
             }
 
