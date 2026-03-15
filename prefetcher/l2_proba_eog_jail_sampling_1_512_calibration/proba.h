@@ -198,7 +198,7 @@ private:
     int ewma_alpha_den = 2;
 
     bool is_accuracy_targeter = false;
-    bool is_accuracy_correction = false;
+    bool is_accuracy_correction = true;
 
     uint64_t num_valid_update = 0;
     uint64_t total_num_valid_update = 0;
