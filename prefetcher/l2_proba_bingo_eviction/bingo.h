@@ -47,22 +47,22 @@ constexpr int NUM_BLOCKS = REGION_SIZE / BLOCK_SIZE;
 constexpr uint64_t REGION_OFFSET_MASK = (1ULL << (LOG2_REGION_SIZE - LOG2_BLOCK_SIZE)) - 1;
 
 // ------------------------- util functions ------------------------- //
-std::vector<int> pattern_bool2int(std::vector<bool> pattern) {
+inline std::vector<int> pattern_bool2int(std::vector<bool> pattern) {
     std::vector<int> pattern_int(NUM_BLOCKS, 0);
     for (int i = 0; i < NUM_BLOCKS; i++)
         pattern_int[i] = (pattern[i] ? PC_ADDRESS_FILL_LEVEL : 0);
     return pattern_int;
 }
 
-uint64_t random_gen() {
+inline uint64_t random_gen() {
     return static_cast<uint64_t>(std::rand() % 100);
 }
 
-uint32_t count_bits_set(const std::vector<int> &pattern) {
+inline uint32_t count_bits_set(const std::vector<int> &pattern) {
     return std::count(pattern.begin(), pattern.end(), bingo_pb::PC_ADDRESS_FILL_LEVEL);
 }
 
-uint32_t count_bits_same(const std::vector<int> &pattern1, const std::vector<int> &pattern2) {
+inline uint32_t count_bits_same(const std::vector<int> &pattern1, const std::vector<int> &pattern2) {
     assert(pattern1.size() == pattern2.size() && "Patterns must be the same length");
 
     uint32_t count = 0;
@@ -275,7 +275,7 @@ public:
     }
 
     std::string log() {
-        std::vector<std::string> headers({"PC", "Offset", "Address", "Pattern"});
+        std::vector<std::string> headers({"PC", "Address", "Pattern"});
         return Super::log(headers);
     }
 
