@@ -36,7 +36,7 @@ constexpr int NUM_BLOCKS = REGION_SIZE / BLOCK_SIZE;
 
 constexpr int AGT_SIZE = 64, AGT_WAY = 8;
 constexpr int PHT_WAY = 16;
-constexpr int PHT_SIZE = 512;
+constexpr int PHT_SIZE = 256;
 constexpr int PB_SIZE = 32, PB_WAY = 8;
 constexpr int PC_WIDTH = 16;
 constexpr int PROBA_HASH_TYPE = 2;
