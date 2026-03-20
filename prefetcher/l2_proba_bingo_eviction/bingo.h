@@ -95,7 +95,7 @@ public:
         if (!entry) {
             return nullptr;
         }
-        Super::set_mru(key);
+        Super::rp_promote(key);
         return entry;
     }
 
@@ -103,7 +103,7 @@ public:
         uint64_t key = this->build_key(region_number);
         // assert(!Super::find(key));
         Super::insert(key, {pc, offset});
-        Super::set_mru(key);
+        Super::rp_promote(key);
     }
 
     Entry* erase(uint64_t region_number) {
@@ -163,7 +163,7 @@ public:
             return false;
         }
         entry->data.pattern[offset] = true;
-        Super::set_mru(key);
+        Super::rp_promote(key);
         return true;
     }
 
@@ -174,7 +174,7 @@ public:
         std::vector<bool> pattern(this->pattern_len, false);
         pattern[offset] = true;
         Entry old_entry = Super::insert(key, {pc, offset, pattern});
-        Super::set_mru(key);
+        Super::rp_promote(key);
         return old_entry;
     }
 
@@ -232,19 +232,19 @@ public:
         uint64_t key = this->build_key_pc_addr(pc, address);
         custom_util::SaturatingCounter mode(3,4);
         Super::insert(key, {pattern_bool2int(pattern), mode});
-        Super::set_mru(key);
+        Super::rp_promote(key);
     }
 
     void insert_pc_offset(uint64_t pc, uint64_t address, std::vector<bool> pattern) {
         uint64_t key = this->build_key_pc_offset(pc, address);
         custom_util::SaturatingCounter mode(3,4);
         Super::insert(key, {pattern_bool2int(pattern), mode});
-        Super::set_mru(key);
+        Super::rp_promote(key);
     }
 
     void update(uint64_t key, std::vector<int> pattern, custom_util::SaturatingCounter mode) {
         Super::update(key, {pattern, mode});
-        Super::set_mru(key);
+        Super::rp_promote(key);
     }
 
     PatternHistoryTable::Entry* find_pc_addr(uint64_t pc, uint64_t address){
@@ -261,13 +261,13 @@ public:
         uint64_t pc_addr_key = this->build_key_pc_addr(pc, address);
         Entry* pc_addr_entry = Super::find(pc_addr_key);
         if(pc_addr_entry != nullptr) {
-            Super::set_mru(pc_addr_key);
+            Super::rp_promote(pc_addr_key);
             return pc_addr_entry->data.pattern;
         }
         uint64_t pc_offset_key = this->build_key_pc_offset(pc, address);
         Entry* pc_offset_entry = Super::find(pc_offset_key);
         if(pc_offset_entry != nullptr) {
-            Super::set_mru(pc_offset_key);
+            Super::rp_promote(pc_offset_key);
             return pc_offset_entry->data.pattern;;
         } else {
             return std::vector<int>{};
@@ -369,7 +369,7 @@ public:
         if (!entry) {
             return 0;
         }
-        Super::set_mru(key);
+        Super::rp_promote(key);
         int pf_issued = 0;
         std::vector<int>& pattern = entry->data.pattern;
         pattern[region_offset] = 0; /* accessed block will be automatically fetched if necessary (miss) */
@@ -397,7 +397,7 @@ public:
                 }
             }
         }
-        if(count_bits_set(pattern)==0) Super::erase(key);
+        Super::erase(key);
         return pf_issued;
     }
 
