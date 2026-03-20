@@ -46,8 +46,33 @@ const int PC_ADDRESS_FILL_LEVEL = FILL_L2;
 constexpr int NUM_BLOCKS = REGION_SIZE / BLOCK_SIZE;
 constexpr uint64_t REGION_OFFSET_MASK = (1ULL << (LOG2_REGION_SIZE - LOG2_BLOCK_SIZE)) - 1;
 
-template <class T>
-inline T square(T x) { return x * x; }
+// ------------------------- util functions ------------------------- //
+std::vector<int> pattern_bool2int(std::vector<bool> pattern) {
+    std::vector<int> pattern_int(NUM_BLOCKS, 0);
+    for (int i = 0; i < NUM_BLOCKS; i++)
+        pattern_int[i] = (pattern[i] ? PC_ADDRESS_FILL_LEVEL : 0);
+    return pattern_int;
+}
+
+uint64_t random_gen() {
+    return static_cast<uint64_t>(std::rand() % 100);
+}
+
+uint32_t count_bits_set(const std::vector<int> &pattern) {
+    return std::count(pattern.begin(), pattern.end(), bingo_pb::PC_ADDRESS_FILL_LEVEL);
+}
+
+uint32_t count_bits_same(const std::vector<int> &pattern1, const std::vector<int> &pattern2) {
+    assert(pattern1.size() == pattern2.size() && "Patterns must be the same length");
+
+    uint32_t count = 0;
+    for (size_t i = 0; i < pattern1.size(); ++i) {
+        if (pattern1[i] == bingo_pb::PC_ADDRESS_FILL_LEVEL && pattern2[i] == bingo_pb::PC_ADDRESS_FILL_LEVEL) {
+            ++count;
+        }
+    }
+    return count;
+}
 
 class FilterTableData {
 public:
@@ -372,7 +397,7 @@ public:
                 }
             }
         }
-        Super::erase(key);
+        if(count_bits_set(pattern)==0) Super::erase(key);
         return pf_issued;
     }
 
@@ -489,7 +514,7 @@ private:
         return { insert_probabilities[mode.get_cnt()], delete_probabilities[mode.get_cnt()] };
     }
 
-    void proba_update(PatternHistoryTable::entry *pht_entry, const std::vector<bool> &pattern){
+    void proba_update(PatternHistoryTable::Entry *pht_entry, const std::vector<bool> &pattern){
         const std::vector<int> &observation = pattern_bool2int(pattern);
         std::vector<int> prediction = pht_entry->data.pattern;
         custom_util::SaturatingCounter mode = pht_entry->data.mode;
@@ -548,7 +573,7 @@ private:
             }
         }
 
-        pht.update(pht_entry.key, prediction, mode);
+        pht.update(pht_entry->key, prediction, mode);
     }
 
     void update_in_phts(const AccumulationTable::Entry &entry) {
@@ -556,14 +581,14 @@ private:
         uint64_t address = entry.key * this->pattern_len + entry.data.offset;
         const std::vector<bool> &observation = entry.data.pattern;
 
-        PatternHistoryTable::entry *pht_pc_addr_entry = this->pht.find_pc_addr(pc, address);
+        PatternHistoryTable::Entry *pht_pc_addr_entry = this->pht.find_pc_addr(pc, address);
         if(pht_pc_addr_entry){
             this->proba_update(pht_pc_addr_entry, observation);
         } else {
             this->pht.insert_pc_addr(pc, address, observation);
         }
 
-        PatternHistoryTable::entry *pht_pc_offset_entry = this->pht.find_pc_offset(pc, address);
+        PatternHistoryTable::Entry *pht_pc_offset_entry = this->pht.find_pc_offset(pc, address);
         if(pht_pc_offset_entry){
             this->proba_update(pht_pc_offset_entry, observation);
         } else {
@@ -581,33 +606,6 @@ private:
     uint64_t proba_acc_thr = 50;
 };
 
-// ------------------------- util functions ------------------------- //
-std::vector<int> pattern_bool2int(std::vector<bool> pattern) {
-    std::vector<int> pattern_int(NUM_BLOCKS, 0);
-    for (int i = 0; i < NUM_BLOCKS; i++)
-        pattern_int[i] = (pattern[i] ? PC_ADDRESS_FILL_LEVEL : 0);
-    return pattern_int;
-}
-
-uint64_t random_gen() {
-    return static_cast<uint64_t>(std::rand() % 100);
-}
-
-uint32_t count_bits_set(const std::vector<int> &pattern) {
-    return std::count(pattern.begin(), pattern.end(), bingo::PC_ADDRESS_FILL_LEVEL);
-}
-
-uint32_t count_bits_same(const std::vector<int> &pattern1, const std::vector<int> &pattern2) {
-    assert(pattern1.size() == pattern2.size() && "Patterns must be the same length");
-
-    uint32_t count = 0;
-    for (size_t i = 0; i < pattern1.size(); ++i) {
-        if (pattern1[i] == bingo::PC_ADDRESS_FILL_LEVEL && pattern2[i] == bingo::PC_ADDRESS_FILL_LEVEL) {
-            ++count;
-        }
-    }
-    return count;
-}
 
 } // namespace bingo_pb
 #endif
