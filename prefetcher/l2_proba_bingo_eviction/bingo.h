@@ -19,7 +19,6 @@ constexpr int REGION_SIZE = 4 * 1024;
 constexpr int LOG2_REGION_SIZE = 12;
 constexpr int MIN_ADDR_WIDTH = 6;
 constexpr int MAX_ADDR_WIDTH = 16;
-constexpr int PC_WIDTH = 16;
 constexpr int KEY_WIDTH = 64;
 constexpr int PHT_SIZE = 16 * 1024;
 constexpr int PHT_WAY = 16;
@@ -221,11 +220,11 @@ class PatternHistoryTable : public custom_util::LRUSetAssociativeCache<PatternHi
     typedef custom_util::LRUSetAssociativeCache<PatternHistoryTableData> Super;
 
 public:
-    PatternHistoryTable(int size, int pattern_len, int min_addr_width, int max_addr_width, int pc_width, int key_width,
+    PatternHistoryTable(int size, int pattern_len, int min_addr_width, int max_addr_width, int key_width,
                         int debug_level = 0, int num_ways = 16) :
         Super(size, num_ways, debug_level),
         pattern_len(pattern_len), min_addr_width(min_addr_width),
-        max_addr_width(max_addr_width), pc_width(pc_width), key_width(key_width) {
+        max_addr_width(max_addr_width), key_width(key_width) {
     }
 
     void insert_pc_addr(uint64_t pc, uint64_t address, std::vector<bool> pattern) {
@@ -263,15 +262,16 @@ public:
         if(pc_addr_entry != nullptr) {
             Super::rp_promote(pc_addr_key);
             return pc_addr_entry->data.pattern;
-        }
-        uint64_t pc_offset_key = this->build_key_pc_offset(pc, address);
-        Entry* pc_offset_entry = Super::find(pc_offset_key);
-        if(pc_offset_entry != nullptr) {
-            Super::rp_promote(pc_offset_key);
-            return pc_offset_entry->data.pattern;;
         } else {
-            return std::vector<int>{};
-        }      
+            uint64_t pc_offset_key = this->build_key_pc_offset(pc, address);
+            Entry* pc_offset_entry = Super::find(pc_offset_key);
+            if(pc_offset_entry != nullptr) {
+                Super::rp_promote(pc_offset_key);
+                return pc_offset_entry->data.pattern;;
+            } else {
+                return std::vector<int>{};
+            }  
+        }    
     }
 
     std::string log() {
@@ -326,7 +326,7 @@ private:
     }
 
     int pattern_len;
-    int min_addr_width, max_addr_width, key_width, pc_width;
+    int min_addr_width, max_addr_width, key_width;
 
     /*======================================================*/
     /* Entry   = [tag, map, valid, LRU]                     */
@@ -421,12 +421,12 @@ private:
 
 class Bingo {
 public:
-    Bingo(int pattern_len, int min_addr_width, int max_addr_width, int pc_width, int key_width, int filter_table_size,
+    Bingo(int pattern_len, int min_addr_width, int max_addr_width, int key_width, int filter_table_size,
           int accumulation_table_size, int pht_size, int pht_ways, int pb_size, int pb_way, int debug_level = 0) :
         pattern_len(pattern_len),
         filter_table(filter_table_size, debug_level),
         accumulation_table(accumulation_table_size, pattern_len, debug_level),
-        pht(pht_size, pattern_len, min_addr_width, max_addr_width, pc_width, key_width, debug_level, pht_ways),
+        pht(pht_size, pattern_len, min_addr_width, max_addr_width, key_width, debug_level, pht_ways),
         pf_buffer(pb_size, pattern_len, debug_level, pb_way) {}
 
     void access(uint64_t block_number, uint64_t pc) {
