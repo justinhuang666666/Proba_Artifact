@@ -1,8 +1,10 @@
-#include "proba.h"
+#include "proba_pmp.h"
 #include "cache.h"
 
 #include <assert.h>
 #include <array>
+#include <cstdlib>
+#include <algorithm>
 
 /*
  * Proba: Spatial Memory Streaming with Probabilistic Updates
@@ -73,60 +75,58 @@ uint64_t ActiveGenerationTable::build_key(uint64_t region_num) {
 }
 
 
-// ------------------------- PHT functions ------------------------- //
-PatternHistoryTable::PatternHistoryTable(int size, int num_ways, int pc_width) :
-    Super(size, num_ways), pc_width(pc_width) {
-    std::cout << "Pattern Table index_len: " << Super::index_len << std::endl;
+// ------------------------- PC Pattern Table functions ------------------------- //
+PCPatternTable::PCPatternTable(int size, int num_ways, int pc_width, int key_width) :
+    Super(size, num_ways), pc_width(pc_width), key_width(key_width) {
+    std::cout << "PC Pattern Table index_len: " << Super::index_len << std::endl;
 }
 
-void PatternHistoryTable::insert(uint64_t pc, const std::vector<int> &pattern) {
+void PCPatternTable::insert(uint64_t pc, uint64_t offset, const std::vector<int> &pattern) {
     assert((int)pattern.size() == proba::NUM_BLOCKS);
-    uint64_t key = build_key(pc);
+    uint64_t key = build_key(pc, offset);
     // std::cout<<"pc key: "<<std::hex<<key<<std::dec<<std::endl;
     custom_util::SaturatingCounter mode(3,4);
     Super::insert(key, {pattern, mode});
     Super::rp_insert(key);  
 }
 
-void PatternHistoryTable::update(uint64_t pc, const std::vector<int> &pattern, const custom_util::SaturatingCounter &mode) {
+void PCPatternTable::update(uint64_t pc, uint64_t offset, const std::vector<int> &pattern, const custom_util::SaturatingCounter &mode) {
     assert((int)pattern.size() == proba::NUM_BLOCKS);
-    uint64_t key = build_key(pc);
+    uint64_t key = build_key(pc, offset);
     // std::cout<<"pc key: "<<std::hex<<key<<std::dec<<std::endl;
     Super::update(key, {pattern, mode});
     Super::rp_promote(key);  
 }
 
-PatternHistoryTable::Entry* PatternHistoryTable::find(uint64_t pc) {
-    uint64_t key = build_key(pc);
+PCPatternTable::Entry* PCPatternTable::find(uint64_t pc, uint64_t offset) {
+    uint64_t key = build_key(pc, offset);
     Entry* entry = Super::find(key);
     if (entry)
         Super::rp_promote(key);
     return entry;
 }
 
-std::string PatternHistoryTable::log() {
+std::string PCPatternTable::log() {
     std::vector<std::string> headers({"Key", "Pattern", "Mode"});
     return Super::log(headers);
 }
 
-void PatternHistoryTable::write_data(Entry& entry, custom_util::Table& table, int row) {
+void PCPatternTable::write_data(Entry& entry, custom_util::Table& table, int row) {
     table.set_cell(row, 0, entry.key);
     table.set_cell(row, 1, custom_util::pattern_to_string(entry.data.pattern));
     table.set_cell(row, 2, static_cast<int>(entry.data.mode.get_cnt()));
 }
 
-// uint64_t PatternHistoryTable::build_key(uint64_t pc) {
-//     return custom_util::hash_index(pc, this->index_len);
-// }
-uint64_t PatternHistoryTable::build_key(uint64_t pc) {
-    uint32_t folded_pc = custom_util::folded_xor(pc, 2);  
+uint64_t PCPatternTable::build_key(uint64_t pc, uint64_t offset) {
+    pc &= (1 << this->pc_width) - 1;        
+    uint64_t key = (pc << proba::OFFSET_WIDTH) | offset;
     uint32_t hashed_key = get_hash(folded_pc);
-    uint32_t mask = ((1 << this->pc_width) - 1);
+    uint32_t mask = ((1 << this->key_width) - 1);
 
     return hashed_key & mask;
 }
 
-uint32_t PatternHistoryTable::get_hash(uint32_t key) {
+uint32_t PCPatternTable::get_hash(uint32_t key) {
     switch (proba::PROBA_HASH_TYPE) {
     case 1: return key;
     case 2: return custom_util::HashZoo::jenkins(key);
@@ -146,6 +146,54 @@ uint32_t PatternHistoryTable::get_hash(uint32_t key) {
     }
 }
 
+
+// ------------------------- Offset Pattern Table functions ------------------------- //
+OffsetPatternTable::OffsetPatternTable(int size, int num_ways, int offset_width) :
+    Super(size, num_ways), offset_width(offset_width) {
+    std::cout << "Offset Pattern Table index_len: " << Super::index_len << std::endl;
+}
+
+void OffsetPatternTable::insert(uint64_t offset, const std::vector<int> &pattern) {
+    assert((int)pattern.size() == proba::NUM_BLOCKS);
+    uint64_t key = build_key(offset);
+    // std::cout<<"pc key: "<<std::hex<<key<<std::dec<<std::endl;
+    custom_util::SaturatingCounter mode(3,4);
+    Super::insert(key, {pattern, mode});
+    Super::rp_insert(key);  
+}
+
+void OffsetPatternTable::update(uint64_t offset, const std::vector<int> &pattern, const custom_util::SaturatingCounter &mode) {
+    assert((int)pattern.size() == proba::NUM_BLOCKS);
+    uint64_t key = build_key(offset);
+    // std::cout<<"pc key: "<<std::hex<<key<<std::dec<<std::endl;
+    Super::update(key, {pattern, mode});
+    Super::rp_promote(key);  
+}
+
+OffsetPatternTable::Entry* OffsetPatternTable::find(uint64_t offset) {
+    uint64_t key = build_key(offset);
+    Entry* entry = Super::find(key);
+    if (entry)
+        Super::rp_promote(key);
+    return entry;
+}
+
+std::string OffsetPatternTable::log() {
+    std::vector<std::string> headers({"Offset", "Pattern", "Mode"});
+    return Super::log(headers);
+}
+
+void OffsetPatternTable::write_data(Entry& entry, custom_util::Table& table, int row) {
+    table.set_cell(row, 0, entry.key);
+    table.set_cell(row, 1, custom_util::pattern_to_string(entry.data.pattern));
+    table.set_cell(row, 2, static_cast<int>(entry.data.mode.get_cnt()));
+}
+
+uint64_t OffsetPatternTable::build_key(uint64_t offset) {
+    uint64_t key = offset & ((1 << offset_width) - 1);
+    return key;
+}
+
 // ------------------------- PB functions ------------------------- //
 PrefetchBuffer::PrefetchBuffer(int size, int pattern_len, int debug_level, int num_ways) :
     Super(size, num_ways), pattern_len(pattern_len), debug_level(debug_level) {
@@ -159,8 +207,19 @@ void PrefetchBuffer::insert(uint64_t region_num, std::vector<int> pattern) {
         std::cerr << "PrefetchBuffer::insert(region_number=0x" << std::hex << region_num
                     << ", pattern=" << custom_util::pattern_to_string(pattern) << ")" << std::dec << std::endl;
     uint64_t key = this->build_key(region_num);
-    Super::insert(key, {pattern});
-    Super::rp_insert(key);
+
+    auto entry = find(key);
+    if (!entry) {
+        Super::insert(key, {pattern});
+        Super::rp_insert(key);
+    } else {
+        for (int i = 0; i < NUM_BLOCKS; i++) {
+            if (pattern[i] == PF_FILL_L2) {
+                entry->data.pattern[i] = PF_FILL_L2;
+            }
+        }
+        Super::rp_promote(key);
+    }
 }
 
 int PrefetchBuffer::prefetch(CACHE* cache, uint64_t block_num) {
@@ -220,8 +279,8 @@ uint64_t PrefetchBuffer::build_key(uint64_t region_num) {
 
 // ------------------------- Proba functions ------------------------- //
 
-Proba::Proba(int agt_size, int agt_ways, int pht_size, int pht_ways, int pc_width, int jt_size, int pb_size, int pb_ways, bool is_debug, int cpu = 0) :
-    agt(agt_size, agt_ways), pht(pht_size, pht_ways, pc_width), jt(jt_size), pb(pb_size, NUM_BLOCKS, 0, pb_ways), is_debug(is_debug), cpu(cpu) {
+Proba::Proba(int agt_size, int agt_ways, int opt_size, int opt_ways, int offset_width, int ppt_size, int ppt_ways, int pc_width, int key_width, int jt_size, int pb_size, int pb_ways, bool is_debug, int cpu) :
+    agt(agt_size, agt_ways), opt(opt_size, opt_ways, offset_width), ppt(ppt_size, ppt_ways, pc_width, key_width), jt(jt_size), pb(pb_size, NUM_BLOCKS, 0, pb_ways), is_debug(is_debug), cpu(cpu) {
 }
 
 void Proba::ewma_update(uint64_t& ewma, uint64_t sample, int alpha_num, int alpha_den)
@@ -260,13 +319,15 @@ void Proba::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
                 std::cout << "Trigger access" <<std::endl;
                 std::cout << "pc: 0x" <<std::hex << pc << ", addr: 0x" << block_num << ", region: 0x" << region_num << ", offset: " << std::dec << region_offset << std::endl;
             }
-            
-            auto pht_entry = pht.find(pc);
 
-            if(pht_entry){
-                if (is_debug) std::cout << "Original prefetch pattern:  " <<custom_util::pattern_to_string(pht_entry->data.pattern)<< std::endl;
-                pb.insert(region_num, rotate(pht_entry->data.pattern, region_offset));
-                if (is_debug) std::cout << "Rotated prefetch pattern:   " <<custom_util::pattern_to_string(rotate(pht_entry->data.pattern, region_offset))<< std::endl;
+            auto opt_entry = opt.find(region_offset);
+            if (opt_entry) {
+                pb.insert(region_num, opt_entry->data.pattern);
+            }
+            
+            auto ppt_entry = ppt.find(pc, region_offset);
+            if (ppt_entry) {
+                pb.insert(region_num, rotate(ppt_entry->data.pattern, region_offset));
             }
 
             int num_valid_entries = agt.get_num_valid_entries_per_set(region_num);
@@ -295,7 +356,9 @@ void Proba::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
                 }
 
                 if (agt_victim.valid) {
-                    update_in_pht(agt_victim, false, cache);
+                    jt.mark(agt_victim.key);
+                    update_in_opt(agt_victim, false, cache);
+                    update_in_ppt(agt_victim, false, cache);
                 }
             } else {
                 jt.mark(region_num);
@@ -312,10 +375,11 @@ void Proba::eviction(uint64_t block_num, CACHE* cache) {
     auto entry = agt.erase(region_num);
     
     if (entry) {
-        update_in_pht(*entry, true, cache);
+        update_in_opt(*entry, true, cache);
+        update_in_ppt(*entry, true, cache);
         if (is_debug) {
             std::cout << "In AGT, AGT erasing region: 0x" << std::hex << region_num << std::dec <<std::endl;
-            std::cout << "PHT updating pc: 0x" << std::hex << entry->data.pc << std::dec << "\n" << pht.log() << std::endl;
+            std::cout << "PHT updating pc: 0x" << std::hex << entry->data.pc << std::dec << "\n" << opt.log() << "\n" << ppt.log() << std::endl;
         }
     } else {
         jt.unmark(region_num);
@@ -334,35 +398,32 @@ void Proba::log() {
     std::cout << this->agt.log();
     std::cout << "Accumulation table end" << std::endl;
 
-    std::cout << "Pattern table begin" << std::dec << std::endl;
-    std::cout << this->pht.log();
-    std::cout << "Pattern table end" << std::endl;
+    std::cout << "Offset Pattern table begin" << std::dec << std::endl;
+    std::cout << this->opt.log();
+    std::cout << "Offset Pattern table end" << std::endl;
+
+    std::cout << "PC Pattern table begin" << std::dec << std::endl;
+    std::cout << this->ppt.log();
+    std::cout << "PC Pattern table end" << std::endl;
 
     std::cout << "Prefetch buffer begin" << std::dec << std::endl;
     std::cout << this->pb.log();
     std::cout << "Prefetch buffer end" << std::endl;
 }
 
-void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is_end_of_generation, CACHE* cache) {
-    if(is_end_of_generation){
-        if (is_debug) std::cout << "AGT end-of-generation eviction" << std::endl;
-    } else {
-        jt.mark(agt_entry.key);
-        if (is_debug) std::cout << "AGT capacity eviction, mark region 0x" <<std::hex<<agt_entry.key<<std::dec<< std::endl;
-    }
-
+void Proba::update_in_opt(const ActiveGenerationTable::Entry& agt_entry, bool is_end_of_generation, CACHE* cache) {
     if(!use_only_training_on_eog || is_end_of_generation){
-        auto pht_entry = pht.find(agt_entry.data.pc);
-        if(pht_entry){
+        auto opt_entry = opt.find(agt_entry.data.trigger_offset);
+        if(opt_entry){
             if (is_debug) std::cout << "PHT entry found" << std::endl;
-            const std::vector<int> &observation = rotate(pattern_bool2int(agt_entry.data.pattern), -agt_entry.data.trigger_offset);
-            std::vector<int> prediction = pht_entry->data.pattern;
-            custom_util::SaturatingCounter mode = pht_entry->data.mode;
+            const std::vector<int> &observation = pattern_bool2int(agt_entry.data.pattern);
+            std::vector<int> prediction = opt_entry->data.pattern;
+            custom_util::SaturatingCounter mode = opt_entry->data.mode;
 
             if (is_debug) {
                 std::cout << "PC Tag:             " << agt_entry.data.pc <<std::endl;
                 std::cout << "Observation:        " << custom_util::pattern_to_string(observation)<< std::endl;
-                std::cout << "Prediction:         " << custom_util::pattern_to_string(pht_entry->data.pattern) <<std::endl;
+                std::cout << "Prediction:         " << custom_util::pattern_to_string(opt_entry->data.pattern) <<std::endl;
             }
 
             auto safe_minus_one = [](uint32_t x) -> uint64_t {
@@ -379,56 +440,6 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
                 std::cout << "pop_count_observation:              " << std::dec << pop_count_observation << std::endl;
             }
 
-            // EWMA
-            global_accurate_pf_sum += same_count_observation_prediction;
-            global_pf_sum += pop_count_prediction;
-            num_valid_update++;
-            total_num_valid_update++;
-            
-            if (num_valid_update >= ewma_window_size) {
-                uint64_t window_accuracy_estimate = 0;
-            
-                if (global_pf_sum > 0) {
-                    window_accuracy_estimate =
-                        (100ULL * global_accurate_pf_sum) / global_pf_sum;
-                }
-            
-                uint64_t cur_pf_useful = static_cast<uint64_t>(cache->sim_stats.pf_useful);
-                uint64_t cur_pf_unused = static_cast<uint64_t>(cache->sim_stats.pf_useless);
-            
-                uint64_t window_pf_useful = 0;
-                uint64_t window_pf_unused = 0;
-            
-                if (cur_pf_useful >= prev_pf_useful && cur_pf_unused >= prev_pf_unused) {
-                    window_pf_useful = cur_pf_useful - prev_pf_useful;
-                    window_pf_unused = cur_pf_unused - prev_pf_unused;
-                }
-            
-                uint64_t window_global_accuracy = 0;
-                if (window_pf_useful + window_pf_unused > 0) {
-                    window_global_accuracy =
-                        (100ULL * window_pf_useful) / (window_pf_useful + window_pf_unused);
-                }
-            
-                bool first_window = (total_num_valid_update == num_valid_update);
-            
-                if (first_window) {
-                    ewma_accuracy_estimate = window_accuracy_estimate;
-                    ewma_global_accuracy = window_global_accuracy;
-                } else if (cur_pf_useful >= prev_pf_useful && cur_pf_unused >= prev_pf_unused) {
-                    ewma_update(ewma_accuracy_estimate, window_accuracy_estimate,
-                                ewma_alpha_num, ewma_alpha_den);
-                    ewma_update(ewma_global_accuracy, window_global_accuracy,
-                                ewma_alpha_num, ewma_alpha_den);
-                }
-            
-                global_accurate_pf_sum = 0;
-                global_pf_sum = 0;
-                prev_pf_useful = cur_pf_useful;
-                prev_pf_unused = cur_pf_unused;
-                num_valid_update = 0;
-            }
-
             uint64_t local_accuracy = 0;
             {
                 double tmp = 0.0;
@@ -439,31 +450,14 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
                 local_accuracy = static_cast<uint64_t>(tmp);
             }
 
-            uint64_t estimated_global_accuracy = ewma_accuracy_estimate;
-
-            int64_t local_acc_thr = proba_acc_thr;
+            int64_t local_acc_thr = opt_acc_thr;
             int64_t corrected_accuracy = static_cast<int64_t>(local_accuracy);
-            
-            if (is_accuracy_targeter && (ewma_global_accuracy != 0)) {
-                int64_t act = static_cast<int64_t>(ewma_global_accuracy);
-                int64_t thr = static_cast<int64_t>(proba_acc_thr);
-                local_acc_thr = 2 * thr - act;
-            }
-            
-            if (is_accuracy_correction) {
-                int64_t loc = static_cast<int64_t>(local_accuracy);
-                int64_t act = static_cast<int64_t>(ewma_global_accuracy);
-                int64_t est = static_cast<int64_t>(estimated_global_accuracy);
-                corrected_accuracy = loc + (act - est);
-            }
             
             local_acc_thr = std::clamp<int64_t>(local_acc_thr, 0, 100);
             corrected_accuracy = std::clamp<int64_t>(corrected_accuracy, 0, 100);
 
             if (is_debug) {
                 std::cout << "Local Accuracy:            " << std::dec << local_accuracy <<std::endl;
-                std::cout << "Actual Global Accuracy:    " << std::dec << ewma_global_accuracy <<std::endl;
-                std::cout << "Estimated Global Accuracy: " << std::dec << estimated_global_accuracy <<std::endl;
                 std::cout << "Corrected Accuracy:        " << std::dec << corrected_accuracy <<std::endl;
             }
 
@@ -508,11 +502,113 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
                 std::cout << "Updated Prediction: " << custom_util::pattern_to_string(prediction) <<std::endl;
             }
 
-            pht.update(agt_entry.data.pc, prediction, mode);
+            opt.update(agt_entry.data.trigger_offset, prediction, mode);
         } else {
             if(count_bits_set(pattern_bool2int(agt_entry.data.pattern))>1){
                 if (is_debug) std::cout << "PHT entry not fount, insert new PHT entry" <<std::endl;
-                pht.insert(agt_entry.data.pc, rotate(pattern_bool2int(agt_entry.data.pattern), -agt_entry.data.trigger_offset));
+                opt.insert(agt_entry.data.trigger_offset, pattern_bool2int(agt_entry.data.pattern));
+            }
+        }
+    }
+
+}
+
+void Proba::update_in_ppt(const ActiveGenerationTable::Entry& agt_entry, bool is_end_of_generation, CACHE* cache) {
+    if(!use_only_training_on_eog || is_end_of_generation){
+        auto ppt_entry = ppt.find(agt_entry.data.pc, agt_entry.data.offset);
+        if(ppt_entry){
+            if (is_debug) std::cout << "PHT entry found" << std::endl;
+            const std::vector<int> &observation = rotate(pattern_bool2int(agt_entry.data.pattern), -agt_entry.data.trigger_offset);
+            std::vector<int> prediction = ppt_entry->data.pattern;
+            custom_util::SaturatingCounter mode = ppt_entry->data.mode;
+
+            if (is_debug) {
+                std::cout << "PC Tag:             " << agt_entry.data.pc <<std::endl;
+                std::cout << "Observation:        " << custom_util::pattern_to_string(observation)<< std::endl;
+                std::cout << "Prediction:         " << custom_util::pattern_to_string(ppt_entry->data.pattern) <<std::endl;
+            }
+
+            auto safe_minus_one = [](uint32_t x) -> uint64_t {
+                return (x > 0) ? static_cast<uint64_t>(x - 1) : 0ULL;
+            };
+            
+            uint64_t pop_count_observation = safe_minus_one(count_bits_set(observation));
+            uint64_t pop_count_prediction = safe_minus_one(count_bits_set(prediction));
+            uint64_t same_count_observation_prediction = safe_minus_one(count_bits_same(prediction, observation));
+
+            if (is_debug) {
+                std::cout << "same_count_observation_prediction: " << std::dec << same_count_observation_prediction <<std::endl;
+                std::cout << "pop_count_prediction:              " << std::dec << pop_count_prediction << std::endl;
+                std::cout << "pop_count_observation:              " << std::dec << pop_count_observation << std::endl;
+            }
+
+            uint64_t local_accuracy = 0;
+            {
+                double tmp = 0.0;
+                if (pop_count_prediction > 0) {
+                    tmp = (static_cast<double>(same_count_observation_prediction) /
+                        static_cast<double>(pop_count_prediction)) * 100.0;
+                }
+                local_accuracy = static_cast<uint64_t>(tmp);
+            }
+
+            int64_t local_acc_thr = ppt_acc_thr;
+            int64_t corrected_accuracy = static_cast<int64_t>(local_accuracy);
+            
+            local_acc_thr = std::clamp<int64_t>(local_acc_thr, 0, 100);
+            corrected_accuracy = std::clamp<int64_t>(corrected_accuracy, 0, 100);
+
+            if (is_debug) {
+                std::cout << "Local Accuracy:            " << std::dec << local_accuracy <<std::endl;
+                std::cout << "Corrected Accuracy:        " << std::dec << corrected_accuracy <<std::endl;
+            }
+
+            if(pop_count_prediction > 0){
+                if(corrected_accuracy > local_acc_thr) {
+                    mode.inc();
+                    if (is_debug) std::cout << "Accuracy greater than threshold, increment mode: " << mode.get_cnt() <<std::endl;
+                } else {
+                    mode.dec();
+                    if (is_debug) std::cout << "Accuracy less than threshold, decrement mode: " << mode.get_cnt() <<std::endl;
+                }
+            }
+
+            std::pair<uint64_t,uint64_t> probs = get_probs(mode);
+
+            uint64_t insert_probability = probs.first;
+            uint64_t delete_probability = probs.second;
+
+            if (is_debug) {
+                std::cout << "insert probability: " << std::dec << insert_probability <<std::endl;
+                std::cout << "delete probability: " << std::dec << delete_probability << std::endl;
+            }
+
+            for (int i = 0; i < NUM_BLOCKS; ++i) {
+                double rand = random_gen();
+                if (prediction[i]&&!observation[i]) {
+                    // If the address is in prediction but not found in new observation
+                    // Delete with a chance based on delete_probability
+                    if (rand < delete_probability) {
+                        prediction[i] = 0;
+                    }
+                } else if (!prediction[i]&&observation[i]){
+                    // If the address is in new observation but not found in prediction
+                    // Insert with a chance based on insert_probability
+                    if (rand < insert_probability) {
+                        prediction[i] = PF_FILL_L2;
+                    }
+                }
+            }
+
+            if (is_debug) {
+                std::cout << "Updated Prediction: " << custom_util::pattern_to_string(prediction) <<std::endl;
+            }
+
+            ppt.update(agt_entry.data.pc, agt_entry.data.offset, prediction, mode);
+        } else {
+            if(count_bits_set(pattern_bool2int(agt_entry.data.pattern))>1){
+                if (is_debug) std::cout << "PHT entry not fount, insert new PHT entry" <<std::endl;
+                ppt.insert(agt_entry.data.pc, agt_entry.data.offset, rotate(pattern_bool2int(agt_entry.data.pattern), -agt_entry.data.trigger_offset));
             }
         }
     }
@@ -575,7 +671,7 @@ uint32_t count_bits_same(const std::vector<int> &pattern1, const std::vector<int
 void CACHE::prefetcher_initialize() {
     std::cout << NAME << " Proba NEW NEW prefetcher" << std::endl;
 
-    prefetchers = std::vector<proba::Proba>(NUM_CPUS, proba::Proba(proba::AGT_SIZE, proba::AGT_WAY, proba::PHT_SIZE, proba::PHT_WAY, proba::PC_WIDTH, proba::JT_SIZE, proba::PB_SIZE, proba::PB_WAY, proba::DEBUG, cpu));
+    prefetchers = std::vector<proba::Proba>(NUM_CPUS, proba::Proba(proba::AGT_SIZE, proba::AGT_WAY, proba::OPT_SIZE, proba::OPT_WAY, proba::OFFSET_WIDTH, proba::PPT_SIZE, proba::PPT_WAY, proba::PC_WIDTH, proba::KEY_WIDTH, proba::JT_SIZE, proba::PB_SIZE, proba::PB_WAY, proba::DEBUG, cpu));
 }
 
 uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint32_t metadata_in) {

@@ -1,5 +1,5 @@
-#ifndef PROBA_H
-#define PROBA_H
+#ifndef PROBA_PMP_H
+#define PROBA_PMP_H
 
 /*
  * Proba: Spatial Memory Streaming with Probabilistic Updates
@@ -35,10 +35,17 @@ constexpr bool DEBUG = false;
 constexpr int NUM_BLOCKS = REGION_SIZE / BLOCK_SIZE;
 
 constexpr int AGT_SIZE = 64, AGT_WAY = 8;
-constexpr int PHT_WAY = 16;
-constexpr int PHT_SIZE = 1024;
+
+// Offset Pattern Table
+constexpr int OPT_WAY = 1;
+constexpr int OPT_SIZE = NUM_BLOCKS * OPT_WAY;
+constexpr int OFFSET_WIDTH = LOG2_REGION_SIZE - LOG2_BLOCK_SIZE;
+// PC Pattern Table
+constexpr int PPT_WAY = 16;
+constexpr int PPT_SIZE = 256;
 constexpr int PB_SIZE = 32, PB_WAY = 8;
-constexpr int PC_WIDTH = 16;
+constexpr int PC_WIDTH = 26;
+constexpr int KEY_WIDTH = 16;
 constexpr int PROBA_HASH_TYPE = 2;
 
 constexpr int JT_SIZE = 4096;
@@ -80,23 +87,46 @@ public:
     std::string log();
 };
 
-// ------------------------- Pattern History Table ------------------------- //
-struct PatternHistoryTableData {
+// ------------------------- Offset Pattern Table ------------------------- //
+struct OffsetPatternTableData {
     std::vector<int> pattern;
     custom_util::SaturatingCounter mode;
 };
 
-class PatternHistoryTable : public PHT_TYPE<PatternHistoryTableData> {
-    typedef PHT_TYPE<PatternHistoryTableData> Super;
+class OffsetPatternTable : public PHT_TYPE<OffsetPatternTableData> {
+    typedef PHT_TYPE<OffsetPatternTableData> Super;
 
 private:
-    int pc_width;
+    int offset_width;
+    void write_data(Entry& entry, custom_util::Table& table, int row);
+    uint64_t build_key(uint64_t offset);
+
+public:
+    OffsetPatternTable(int size, int num_ways, int offset_width);
+    void insert(uint64_t offset, const std::vector<int> &pattern); 
+    void update(uint64_t offset, const std::vector<int> &pattern, const custom_util::SaturatingCounter &mode);
+    Entry* find(uint64_t offset);
+
+    std::string log();
+};
+
+// ------------------------- PC Pattern Table ------------------------- //
+struct PCPatternTableData {
+    std::vector<int> pattern;
+    custom_util::SaturatingCounter mode;
+};
+
+class PCPatternTable : public PHT_TYPE<PCPatternTableData> {
+    typedef PHT_TYPE<PCPatternTableData> Super;
+
+private:
+    int key_width;
     void write_data(Entry& entry, custom_util::Table& table, int row);
     uint64_t build_key(uint64_t pc);
     uint32_t get_hash(uint32_t key);
 
 public:
-    PatternHistoryTable(int size, int num_ways, int pc_width);
+    PCPatternTable(int size, int num_ways, int key_width);
     void insert(uint64_t pc, const std::vector<int> &pattern); 
     void update(uint64_t pc, const std::vector<int> &pattern, const custom_util::SaturatingCounter &mode);
     Entry* find(uint64_t pc);
@@ -186,30 +216,18 @@ public:
 class Proba {
 private:
     ActiveGenerationTable agt;
-    PatternHistoryTable pht;
+    OffsetPatternTable opt;
+    PCPatternTable ppt;
     JailTable jt;
     PrefetchBuffer pb;
 
     int sample_rate = 1;
-    int proba_acc_thr = 50;
+    int opt_acc_thr = 70;
+    int ppt_acc_thr = 50;
 
     int ewma_window_size = 1000;
     int ewma_alpha_num = 1;
     int ewma_alpha_den = 2;
-
-    bool is_accuracy_targeter = false;
-    bool is_accuracy_correction = false;
-
-    uint64_t num_valid_update = 0;
-    uint64_t total_num_valid_update = 0;
-
-    uint64_t global_accurate_pf_sum = 0;
-    uint64_t global_pf_sum = 0;
-    uint64_t ewma_accuracy_estimate = 0;
-    uint64_t ewma_global_accuracy = 0;
-
-    uint64_t prev_pf_useful = 0;
-    uint64_t prev_pf_unused = 0;
 
     bool use_sampling = true;
     bool use_jail_table = true;
@@ -219,13 +237,14 @@ private:
 
     int cpu;
 
-    void update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is_end_of_generation, CACHE* cache);
+    void update_in_opt(const ActiveGenerationTable::Entry& agt_entry, bool is_end_of_generation, CACHE* cache);
+    void update_in_ppt(const ActiveGenerationTable::Entry& agt_entry, bool is_end_of_generation, CACHE* cache);
 
 public:
     int global_level = 0;
     bool warmup;
 
-    Proba(int agt_size, int agt_ways, int pht_size, int pht_ways, int pc_width, int jt_size, int pb_size, int pb_ways, bool is_debug, int cpu);
+    Proba(int agt_size, int agt_ways, int opt_size, int opt_ways, int offset_width, int ppt_size, int ppt_ways, int key_width, int jt_size, int pb_size, int pb_ways, bool is_debug, int cpu);
 
     void set_warmup(bool warmup);
 
