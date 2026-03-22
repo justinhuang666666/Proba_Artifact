@@ -120,7 +120,7 @@ void PCPatternTable::write_data(Entry& entry, custom_util::Table& table, int row
 uint64_t PCPatternTable::build_key(uint64_t pc, uint64_t offset) {
     pc &= (1 << this->pc_width) - 1;        
     uint64_t key = (pc << proba::OFFSET_WIDTH) | offset;
-    uint32_t hashed_key = get_hash(folded_pc);
+    uint32_t hashed_key = get_hash(key);
     uint32_t mask = ((1 << this->key_width) - 1);
 
     return hashed_key & mask;
@@ -515,7 +515,7 @@ void Proba::update_in_opt(const ActiveGenerationTable::Entry& agt_entry, bool is
 
 void Proba::update_in_ppt(const ActiveGenerationTable::Entry& agt_entry, bool is_end_of_generation, CACHE* cache) {
     if(!use_only_training_on_eog || is_end_of_generation){
-        auto ppt_entry = ppt.find(agt_entry.data.pc, agt_entry.data.offset);
+        auto ppt_entry = ppt.find(agt_entry.data.pc, agt_entry.data.trigger_offset);
         if(ppt_entry){
             if (is_debug) std::cout << "PHT entry found" << std::endl;
             const std::vector<int> &observation = rotate(pattern_bool2int(agt_entry.data.pattern), -agt_entry.data.trigger_offset);
@@ -604,11 +604,11 @@ void Proba::update_in_ppt(const ActiveGenerationTable::Entry& agt_entry, bool is
                 std::cout << "Updated Prediction: " << custom_util::pattern_to_string(prediction) <<std::endl;
             }
 
-            ppt.update(agt_entry.data.pc, agt_entry.data.offset, prediction, mode);
+            ppt.update(agt_entry.data.pc, agt_entry.data.trigger_offset, prediction, mode);
         } else {
             if(count_bits_set(pattern_bool2int(agt_entry.data.pattern))>1){
                 if (is_debug) std::cout << "PHT entry not fount, insert new PHT entry" <<std::endl;
-                ppt.insert(agt_entry.data.pc, agt_entry.data.offset, rotate(pattern_bool2int(agt_entry.data.pattern), -agt_entry.data.trigger_offset));
+                ppt.insert(agt_entry.data.pc, agt_entry.data.trigger_offset, rotate(pattern_bool2int(agt_entry.data.pattern), -agt_entry.data.trigger_offset));
             }
         }
     }

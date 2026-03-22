@@ -120,16 +120,17 @@ class PCPatternTable : public PHT_TYPE<PCPatternTableData> {
     typedef PHT_TYPE<PCPatternTableData> Super;
 
 private:
+    int pc_width;
     int key_width;
     void write_data(Entry& entry, custom_util::Table& table, int row);
-    uint64_t build_key(uint64_t pc);
+    uint64_t build_key(uint64_t pc, uint64_t offset);
     uint32_t get_hash(uint32_t key);
 
 public:
-    PCPatternTable(int size, int num_ways, int key_width);
-    void insert(uint64_t pc, const std::vector<int> &pattern); 
-    void update(uint64_t pc, const std::vector<int> &pattern, const custom_util::SaturatingCounter &mode);
-    Entry* find(uint64_t pc);
+    PCPatternTable(int size, int num_ways, int pc_width, int key_width);
+    void insert(uint64_t pc, uint64_t offset, const std::vector<int> &pattern); 
+    void update(uint64_t pc, uint64_t offset, const std::vector<int> &pattern, const custom_util::SaturatingCounter &mode);
+    Entry* find(uint64_t pc, uint64_t offset);
 
     std::string log();
 };
@@ -244,7 +245,7 @@ public:
     int global_level = 0;
     bool warmup;
 
-    Proba(int agt_size, int agt_ways, int opt_size, int opt_ways, int offset_width, int ppt_size, int ppt_ways, int key_width, int jt_size, int pb_size, int pb_ways, bool is_debug, int cpu);
+    Proba(int agt_size, int agt_ways, int opt_size, int opt_ways, int offset_width, int ppt_size, int ppt_ways, int pc_width, int key_width, int jt_size, int pb_size, int pb_ways, bool is_debug, int cpu);
 
     void set_warmup(bool warmup);
 
