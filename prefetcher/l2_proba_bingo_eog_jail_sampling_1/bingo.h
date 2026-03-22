@@ -99,7 +99,7 @@ public:
         return entry;
     }
 
-    Entry* insert(uint64_t region_number, uint64_t pc, int offset) {
+    Entry insert(uint64_t region_number, uint64_t pc, int offset) {
         uint64_t key = this->build_key(region_number);
         // assert(!Super::find(key));
         Entry entry = Super::insert(key, {pc, offset});
@@ -526,7 +526,7 @@ public:
             this->accumulation_table.set_pattern(region_number, region_offset);
             this->filter_table.erase(region_number);
             if (at_victim.valid) {
-                jt.mark(at_victim.key);
+                this->jail_table.mark(at_victim.key);
                 /* move from accumulation table to pattern history table */
                 this->update_in_phts(at_victim, false);
             }

@@ -24,6 +24,7 @@ void CACHE::prefetcher_initialize() {
 
     /* create prefetcher for all cores */
     assert(PAGE_SIZE % bingo_pb::REGION_SIZE == 0);
+    prefetchers = std::vector<bingo_pb::Bingo>(NUM_CPUS, bingo_pb::Bingo(bingo_pb::REGION_SIZE >> LOG2_BLOCK_SIZE, bingo_pb::MIN_ADDR_WIDTH, bingo_pb::MAX_ADDR_WIDTH, bingo_pb::KEY_WIDTH, bingo_pb::FT_SIZE, bingo_pb::AT_SIZE, bingo_pb::PHT_SIZE, bingo_pb::PHT_WAY, bingo_pb::JT_SIZE, bingo_pb::PB_SIZE, bingo_pb::PB_WAY, 0));
 }
 
 uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint32_t metadata_in) {
