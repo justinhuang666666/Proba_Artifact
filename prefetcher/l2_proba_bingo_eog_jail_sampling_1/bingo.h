@@ -515,6 +515,8 @@ public:
                     if (ft_victim.valid) {
                         this->jail_table.mark(ft_victim.key);
                     }
+                } else {
+                    this->jail_table.mark(region_number);
                 }
             }
             return;
