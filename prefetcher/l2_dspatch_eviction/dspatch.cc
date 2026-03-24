@@ -476,8 +476,6 @@ vector<DSPatch> prefetchers;
 
 void CACHE::prefetcher_initialize() {
     std::cout << NAME << " DSPatch prefetcher" << std::endl;
-    if (cpu != 0)
-        return;
 
     /* create prefetcher for all cores */
     prefetchers = std::vector<DSPatch>(NUM_CPUS, DSPatch("DSPatch"));
