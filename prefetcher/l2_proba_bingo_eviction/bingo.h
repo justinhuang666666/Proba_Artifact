@@ -421,11 +421,11 @@ private:
 
 class Bingo {
 public:
-    Bingo(int pattern_len, int min_addr_width, int max_addr_width, int key_width, int filter_table_size,
-          int accumulation_table_size, int pht_size, int pht_ways, int pb_size, int pb_way, int debug_level = 0) :
+    Bingo(int pattern_len, int min_addr_width, int max_addr_width, int key_width, int filter_table_size, int filter_table_way, 
+          int accumulation_table_size, int accumulation_table_way, int pht_size, int pht_ways, int pb_size, int pb_way, int debug_level = 0) :
         pattern_len(pattern_len),
-        filter_table(filter_table_size, debug_level),
-        accumulation_table(accumulation_table_size, pattern_len, debug_level),
+        filter_table(filter_table_size, debug_level, filter_table_way),
+        accumulation_table(accumulation_table_size, pattern_len, debug_level, accumulation_table_way),
         pht(pht_size, pattern_len, min_addr_width, max_addr_width, key_width, debug_level, pht_ways),
         pf_buffer(pb_size, pattern_len, debug_level, pb_way) {}
 
