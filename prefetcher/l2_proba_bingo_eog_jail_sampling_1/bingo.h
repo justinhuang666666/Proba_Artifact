@@ -448,7 +448,7 @@ public:
                 if(!use_sampling||sample){
                     AccumulationTable::Entry at_victim = this->accumulation_table.insert(region_number, pc, region_offset);
                     if (at_victim.valid) {
-                        this->update_in_phts(*at_victim, false);
+                        this->update_in_phts(at_victim, false);
                     }
                 } else {
                     this->jail_table.mark(region_number);
@@ -584,7 +584,7 @@ private:
             } else if (count_bits_set(pattern_bool2int(observation)) > 1) {
                 this->pht.insert_pc_addr(pc, address, observation);
             }
-
+            
             PatternHistoryTable::Entry *pht_pc_offset_entry = this->pht.find_pc_offset(pc, address);
             if (pht_pc_offset_entry) {
                 this->proba_update(pht_pc_offset_entry, observation);
