@@ -16,10 +16,8 @@ uint64_t roi_prefetch_cnt[NUM_CPUS][2] = {0};
 uint64_t roi_cover_cnt[NUM_CPUS][2] = {0};
 uint64_t roi_overpredict_cnt[NUM_CPUS][2] = {0};
 } // namespace
-
 void CACHE::prefetcher_initialize() {
     std::cout << NAME << " Bingo with PrefetchBuffer prefetcher" << std::endl;
-
 
     if (prefetchers.size() < NUM_CPUS) {
         prefetchers.resize(NUM_CPUS,
@@ -27,6 +25,8 @@ void CACHE::prefetcher_initialize() {
                             bingo_pb::MIN_ADDR_WIDTH,
                             bingo_pb::MAX_ADDR_WIDTH,
                             bingo_pb::KEY_WIDTH,
+                            bingo_pb::FT_SIZE,
+                            bingo_pb::FT_WAY,
                             bingo_pb::AT_SIZE,
                             bingo_pb::AT_WAY,
                             bingo_pb::PHT_SIZE,
@@ -41,6 +41,8 @@ void CACHE::prefetcher_initialize() {
                                        bingo_pb::MIN_ADDR_WIDTH,
                                        bingo_pb::MAX_ADDR_WIDTH,
                                        bingo_pb::KEY_WIDTH,
+                                       bingo_pb::FT_SIZE,
+                                       bingo_pb::FT_WAY,
                                        bingo_pb::AT_SIZE,
                                        bingo_pb::AT_WAY,
                                        bingo_pb::PHT_SIZE,
