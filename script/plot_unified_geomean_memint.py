@@ -21,14 +21,14 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_DIR = os.path.join(BASE_DIR, 'results', 'json')
 GRAPH_DIR = os.path.join(BASE_DIR, 'graphs')
 OUTPUT = "png"  # Use PNG for PowerPoint compatibility
-PLOT_NAME = 'proba'
+PLOT_NAME = 'proba_sms_memint'
 
 PRINT_BENCH_STATS = False
 
 # --- IPC MEAN TYPE SELECTION ---
 # 'geomean' - Use geometric mean for IPC speedups (traditional approach)
 # 'harmonic' - Use harmonic mean for IPC speedups (time-weighted, more accurate for rates)
-IPC_MEAN_TYPE = 'harmonic'
+IPC_MEAN_TYPE = 'geomean'
 
 # --- BENCHMARK TYPE SELECTION ---
 # 'SPEC2017' - SPEC2017 benchmarks
@@ -92,14 +92,16 @@ BASELINE = 'no'
 PREFETCHERS = [
     'l2_sms_eviction',
     'l2_bingo_eviction',
+    'l2_proba_bingo_eog_jail_sampling_1',
     'l2_dspatch_eviction',
-    'l2_pmp_eviction',
-    'l2_gaze_eviction',
-    'l2_proba_eviction',
     'l2_proba_eog_jail_sampling_1',
     'l2_proba_eog_jail_sampling_1_calibration',
+    'l2_pmp_eviction',
     'l2_proba_pmp_eog_jail_sampling_1',
+    'l2_proba_pmp_offset_pc_offset_eog_jail_sampling_1',
+    'l2_gaze_eviction',
 ]
+
 if BASELINE not in PREFETCHERS:
     PREFETCHERS.append(BASELINE)
 
