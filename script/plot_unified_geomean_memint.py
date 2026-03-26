@@ -17,8 +17,9 @@ from _GAP_def import GAP_shortcode, gap_ones
 from _GAP_WEIGHTS import GAP_SHORTCODE_WEIGHTS
 
 # --- CONFIGURABLE ---
-LOG_DIR = os.path.join('results', 'json') 
-GRAPH_DIR = 'graphs'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOG_DIR = os.path.join(BASE_DIR, 'results', 'json')
+GRAPH_DIR = os.path.join(BASE_DIR, 'graphs')
 OUTPUT = "png"  # Use PNG for PowerPoint compatibility
 PLOT_NAME = 'proba'
 
@@ -173,9 +174,23 @@ def normalize_trace_name(name):
     name = os.path.basename(name)
     name = re.sub(r'\.(json|txt)$', '', name)
     name = re.sub(r'\.champsimtrace(\.xz)?$', '', name)
+    name = re.sub(r'\.(xz|gz)$', '', name)
     if re.match(r'^\d+\.', name):
         name = name.split('.', 1)[1]
     return name
+
+NORMALIZED_BENCHMARK_WEIGHTS = {
+    benchmark: {normalize_trace_name(sp): weight for sp, weight in weight_map.items()}
+    for benchmark, weight_map in BENCHMARK_WEIGHTS.items()
+}
+
+def expected_simpoints_for_benchmark(benchmark):
+    traces = BENCHMARK_SHORTCODE.get(benchmark, [])
+    return {normalize_trace_name(t) for t in traces}
+
+def available_simpoints_for_benchmark(data, benchmark, prefetcher):
+    prefix = f"{benchmark}/"
+    return {label.split('/', 1)[1] for label in data.get(prefetcher, {}) if label.startswith(prefix)}
 
 # --- PARSING FUNCTIONS ---
 
@@ -446,106 +461,96 @@ def weighted_geomean_speedup(base_ipcs, test_ipcs, weights):
     return math.exp(log_sum)
 
 def compute_geomean_speedups(data, metric_type, baseline_name=None):
-    """Compute correctly weighted speedups for different metric types.
-    
-    For IPC: Uses harmonic mean of speedups (via weighted sum of times) within a benchmark,
-             then geometric mean across benchmarks.
-    For other metrics: Uses arithmetic mean within benchmark, geometric mean across benchmarks.
+    """Compute weighted aggregates using the simpoints that are actually present on disk.
+
+    If a weight is unavailable for a matched simpoint, fall back to weight 1.0.
+    This avoids collapsing the whole benchmark to 0.0 when only a subset of traces
+    was simulated or when the weight map does not cover a benchmark.
     """
     geomean_speedups = defaultdict(dict)
-    
+
+    display_prefetchers = []
+    for p in PREFETCHERS:
+        if p == baseline_name and metric_type in ['coverage', 'accuracy']:
+            continue
+        display_prefetchers.append(p)
+
     for benchmark in BENCHMARKS:
-        weight_map = BENCHMARK_WEIGHTS.get(benchmark, {})
-        allowed_simpoints = set(BENCHMARK_SHORTCODE.get(benchmark, weight_map.keys()))
-        simpoints = [sp for sp in weight_map.keys() if sp in allowed_simpoints]
-        
-        # Get display names for prefetchers. For coverage/accuracy we skip the baseline ("no-no").
-        display_prefetchers = []
-        for p in PREFETCHERS:
-            # Optionally skip baseline for non-relative metrics
-            if p == baseline_name and metric_type in ['coverage', 'accuracy']:
-                continue
-            else:
-                display_prefetchers.append(p)
-        
+        expected = expected_simpoints_for_benchmark(benchmark)
+        normalized_weight_map = NORMALIZED_BENCHMARK_WEIGHTS.get(benchmark, {})
+
         for prefetcher in display_prefetchers:
-            # For IPC, we need to collect raw IPC values to compute harmonic mean properly
             base_ipcs = []
             test_ipcs = []
             weights = []
-            
-            # For other metrics, we collect the computed values
             values = []
             value_weights = []
-            
-            for sp in simpoints:
-                sp_name = normalize_trace_name(sp)
+
+            available_test = available_simpoints_for_benchmark(data, benchmark, prefetcher)
+            available_base = available_simpoints_for_benchmark(data, benchmark, baseline_name) if baseline_name else set()
+
+            if metric_type in ['ipc', 'dram']:
+                matched_simpoints = (expected if expected else (available_base | available_test)) & available_base & available_test
+            else:
+                matched_simpoints = (expected if expected else available_test) & available_test
+
+            for sp_name in sorted(matched_simpoints):
                 label = f"{benchmark}/{sp_name}"
-                
+                weight = normalized_weight_map.get(sp_name, 1.0)
+
                 if metric_type == 'ipc':
                     base_value = data[baseline_name].get(label) if baseline_name else None
                     test_value = data[prefetcher].get(label)
-                    if base_value and test_value and base_value > 0 and test_value > 0:
-                        weight = weight_map[sp]
+                    if base_value is not None and test_value is not None and base_value > 0 and test_value > 0:
                         base_ipcs.append(base_value)
                         test_ipcs.append(test_value)
                         weights.append(weight)
-                
+
                 elif metric_type == 'dram':
                     base_value = data[baseline_name].get(label) if baseline_name else None
                     test_value = data[prefetcher].get(label)
-                    if base_value and test_value:
-                        ratio = test_value / base_value
-                        weight = weight_map[sp]
-                        values.append(ratio)
+                    if base_value is not None and test_value is not None and base_value > 0:
+                        values.append(test_value / base_value)
                         value_weights.append(weight)
-                
+
                 elif metric_type == 'coverage':
                     cov_data = data[prefetcher].get(label)
-                    if cov_data:
+                    if cov_data is not None:
                         useful, demand_misses = cov_data
-                        coverage = useful / (useful + demand_misses)
-                        weight = weight_map[sp]
-                        values.append(coverage)
-                        value_weights.append(weight)
-                
+                        denom = useful + demand_misses
+                        if denom > 0:
+                            values.append(useful / denom)
+                            value_weights.append(weight)
+
                 elif metric_type == 'accuracy':
                     acc_data = data[prefetcher].get(label)
-                    if acc_data:
+                    if acc_data is not None:
                         useful, useless = acc_data
-                        if useful == 0:
-                            accuracy = 1.0  # No prefetches issued
-                        else:
-                            accuracy = useful / (useful + useless)
-                        weight = weight_map[sp]
+                        denom = useful + useless
+                        accuracy = 1.0 if denom == 0 else (useful / denom)
                         values.append(accuracy)
                         value_weights.append(weight)
-            
-            # Compute the aggregate value for this benchmark
+
             if metric_type == 'ipc':
                 if base_ipcs and test_ipcs and weights:
-                    # Use the selected mean type for IPC speedups
                     if IPC_MEAN_TYPE == 'harmonic':
-                        geomean_speedups[prefetcher][benchmark] = weighted_harmonic_mean_speedup(
-                            base_ipcs, test_ipcs, weights)
-                    else:  # geomean
-                        geomean_speedups[prefetcher][benchmark] = weighted_geomean_speedup(
-                            base_ipcs, test_ipcs, weights)
+                        geomean_speedups[prefetcher][benchmark] = weighted_harmonic_mean_speedup(base_ipcs, test_ipcs, weights)
+                    else:
+                        geomean_speedups[prefetcher][benchmark] = weighted_geomean_speedup(base_ipcs, test_ipcs, weights)
                 else:
-                    print(f"Incomplete data for benchmark: {benchmark} prefetcher: {prefetcher}")
+                    print(f"No matched IPC data for benchmark={benchmark} prefetcher={prefetcher} "+
+                          f"(baseline={len(available_base)}, test={len(available_test)}, expected={len(expected)})")
                     geomean_speedups[prefetcher][benchmark] = 0.0
             else:
                 if values and value_weights:
-                    # Use weighted arithmetic mean for DRAM, coverage, accuracy
                     geomean_speedups[prefetcher][benchmark] = weighted_arithmetic_mean(values, value_weights)
                 else:
-                    print(f"Incomplete data for benchmark: {benchmark} prefetcher: {prefetcher}")
+                    print(f"No matched {metric_type} data for benchmark={benchmark} prefetcher={prefetcher} "+
+                          f"(test={len(available_test)}, expected={len(expected)})")
                     geomean_speedups[prefetcher][benchmark] = 0.0
-    
-    # Compute overall geomean across benchmarks (geometric mean is appropriate here
-    # since benchmarks are different workloads, not weighted parts of the same workload)
+
     plot_prefetchers = [p for p in display_prefetchers if p != baseline_name] if baseline_name else display_prefetchers
-    
+
     for prefetcher in plot_prefetchers:
         values = [geomean_speedups[prefetcher][bm] for bm in BENCHMARKS if geomean_speedups[prefetcher][bm] > 0]
         if values:
@@ -554,45 +559,41 @@ def compute_geomean_speedups(data, metric_type, baseline_name=None):
         else:
             overall_geo = 0.0
         geomean_speedups[prefetcher]["geomean"] = overall_geo
-    
+
     return geomean_speedups, plot_prefetchers
 
 def compute_trace_speedups(data, metric_type, baseline_name=None):
-    """Compute speedups for individual simpoints (traces) instead of geomean across benchmarks"""
+    """Compute speedups for individual simpoints using only traces present on disk."""
     trace_speedups = defaultdict(dict)
     all_trace_labels = []
-    
+
+    display_prefetchers = []
+    for p in PREFETCHERS:
+        if p == baseline_name and metric_type in ['coverage', 'accuracy']:
+            continue
+        display_prefetchers.append(p)
+
     for benchmark in BENCHMARKS:
-        weight_map = BENCHMARK_WEIGHTS.get(benchmark, {})
-        allowed_simpoints = set(BENCHMARK_SHORTCODE.get(benchmark, weight_map.keys()))
-        simpoints = [sp for sp in weight_map.keys() if sp in allowed_simpoints]
-        
-        # Get display names for prefetchers
-        display_prefetchers = []
-        for p in PREFETCHERS:
-            if p == baseline_name and metric_type in ['coverage', 'accuracy']:
-                continue
-            else:
-                display_prefetchers.append(p)
-        
-        for sp in simpoints:
-            sp_name = normalize_trace_name(sp)
+        expected = expected_simpoints_for_benchmark(benchmark)
+        available_ref = set()
+        for p in display_prefetchers:
+            available_ref |= available_simpoints_for_benchmark(data, benchmark, p)
+        simpoints = sorted((expected if expected else available_ref) & available_ref)
+
+        for sp_name in simpoints:
             label = f"{benchmark}/{sp_name}"
             all_trace_labels.append(label)
-            
+
             for prefetcher in display_prefetchers:
                 if metric_type == 'ipc':
                     base_value = data[baseline_name].get(label) if baseline_name else None
                     test_value = data[prefetcher].get(label)
-                    if base_value and test_value:
-                        speedup = test_value / base_value
-                        trace_speedups[prefetcher][label] = speedup
+                    if base_value is not None and test_value is not None and base_value > 0:
+                        trace_speedups[prefetcher][label] = test_value / base_value
                     else:
                         trace_speedups[prefetcher][label] = 0.0
-    
-    # Remove baseline from plot prefetchers
+
     plot_prefetchers = [p for p in display_prefetchers if p != baseline_name] if baseline_name else display_prefetchers
-    
     return trace_speedups, plot_prefetchers, all_trace_labels
 
 # --- PLOTTING FUNCTIONS ---
@@ -874,7 +875,14 @@ def main():
     print("Available data summary:")
     for prefetcher in PREFETCHERS:
         count = len(ipc_data.get(prefetcher, {}))
-        print(f"  {prefetcher}: {count} IPC files matched")
+        per_benchmark = {}
+        for benchmark in BENCHMARKS:
+            per_benchmark[benchmark] = len(available_simpoints_for_benchmark(ipc_data, benchmark, prefetcher))
+        nonzero = {k: v for k, v in per_benchmark.items() if v > 0}
+        print(f"  {prefetcher}: {count} IPC files matched across {len(nonzero)} benchmarks")
+        if nonzero:
+            sample = ', '.join(f"{k}:{v}" for k, v in list(nonzero.items())[:6])
+            print(f"    sample -> {sample}")
     
     # Compute geomean speedups for each metric
     print("--------------------------------")
