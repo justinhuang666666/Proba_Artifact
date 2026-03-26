@@ -20,7 +20,7 @@ constexpr int LOG2_REGION_SIZE = 12;
 constexpr int MIN_ADDR_WIDTH = 6;
 constexpr int MAX_ADDR_WIDTH = 16;
 constexpr int KEY_WIDTH = 32;
-constexpr int PHT_SIZE = 16 * 1024;
+constexpr int PHT_SIZE = 32 * 1024;
 constexpr int PHT_WAY = 16;
 constexpr int FT_SIZE = 64;
 constexpr int FT_WAY = 8;
@@ -195,17 +195,21 @@ public:
         return Super::find(key);
     }
 
-    std::vector<int> find(uint64_t pc, uint64_t address) {
+    std::vector<int> find(uint64_t pc, uint64_t address, Cache* cache) {
         uint64_t pc_addr_key = this->build_key_pc_addr(pc, address);
         Entry* pc_addr_entry = Super::find(pc_addr_key);
         if(pc_addr_entry != nullptr) {
             Super::rp_promote(pc_addr_key);
+            cache->sim_stats.num_bingo_pc_addr_hit++;
+            cache->sim_stats.num_bingo_hit++;
             return pc_addr_entry->data.pattern;
         } else {
             uint64_t pc_offset_key = this->build_key_pc_offset(pc, address);
             Entry* pc_offset_entry = Super::find(pc_offset_key);
             if(pc_offset_entry != nullptr) {
                 Super::rp_promote(pc_offset_key);
+                cache->sim_stats.num_bingo_pc_offset_hit++;
+                cache->sim_stats.num_bingo_hit++;
                 return pc_offset_entry->data.pattern;;
             } else {
                 return std::vector<int>{};
@@ -412,7 +416,8 @@ public:
 class Bingo {
 public:
     Bingo(int pattern_len, int min_addr_width, int max_addr_width, int key_width,
-          int accumulation_table_size, int accumulation_table_way, int pht_size, int pht_ways, int jt_size, int pb_size, int pb_way, int debug_level = 0) :
+          int accumulation_table_size, int accumulation_table_way, int pht_size, int pht_ways, int jt_size, int pb_size, int pb_way, int debug_level = 0, Cache* cache) :
+        cache(cache),
         pattern_len(pattern_len),
         accumulation_table(accumulation_table_size, pattern_len, debug_level, accumulation_table_way),
         pht(pht_size, pattern_len, min_addr_width, max_addr_width, key_width, debug_level, pht_ways),
@@ -493,7 +498,7 @@ public:
 
 private:
     std::vector<int> find_in_phts(uint64_t pc, uint64_t address) {
-        std::vector<int> pattern = this->pht.find(pc,address);
+        std::vector<int> pattern = this->pht.find(pc,address, cache);
         return pattern;
     }
 
@@ -594,6 +599,7 @@ private:
         }
     }
 
+    Cache* cache;
     int pattern_len;
 
     AccumulationTable accumulation_table;

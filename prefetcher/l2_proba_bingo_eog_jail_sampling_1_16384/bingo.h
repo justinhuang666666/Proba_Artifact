@@ -26,6 +26,7 @@ constexpr int FT_SIZE = 64;
 constexpr int FT_WAY = 8;
 constexpr int AT_SIZE = 64;
 constexpr int AT_WAY = 8;
+constexpr int JT_SIZE = 4096;
 constexpr int PB_SIZE = 32;
 constexpr int PB_WAY = 8;
 
@@ -72,68 +73,6 @@ inline uint32_t count_bits_same(const std::vector<int> &pattern1, const std::vec
     }
     return count;
 }
-
-class FilterTableData {
-public:
-    uint64_t pc;
-    int offset;
-};
-
-class FilterTable : public custom_util::LRUSetAssociativeCache<FilterTableData> {
-    typedef custom_util::LRUSetAssociativeCache<FilterTableData> Super;
-
-public:
-    FilterTable(int size, int debug_level = 0, int num_ways = 16) :
-        Super(size, num_ways, debug_level) {
-        // assert(__builtin_popcount(size) == 1);
-    }
-
-    Entry* find(uint64_t region_number) {
-        uint64_t key = this->build_key(region_number);
-        Entry* entry = Super::find(key);
-        if (!entry) {
-            return nullptr;
-        }
-        Super::rp_promote(key);
-        return entry;
-    }
-
-    void insert(uint64_t region_number, uint64_t pc, int offset) {
-        uint64_t key = this->build_key(region_number);
-        // assert(!Super::find(key));
-        Super::insert(key, {pc, offset});
-        Super::rp_promote(key);
-    }
-
-    Entry* erase(uint64_t region_number) {
-        uint64_t key = this->build_key(region_number);
-        return Super::erase(key);
-    }
-
-    std::string log() {
-        std::vector<std::string> headers({"Region", "PC", "Offset"});
-        return Super::log(headers);
-    }
-
-private:
-    /* @override */
-    void write_data(Entry& entry, custom_util::Table& table, int row) {
-        table.set_cell(row, 0, entry.key);
-        table.set_cell(row, 1, entry.data.pc);
-        table.set_cell(row, 2, entry.data.offset);
-    }
-
-    uint64_t build_key(uint64_t region_number) {
-        uint64_t key = region_number & ((1ULL << 37) - 1);
-        return key;
-    }
-
-    /*==========================================================*/
-    /* Entry   = [tag, offset, PC, valid, LRU]                  */
-    /* Storage = size * (37 - lg(sets) + 5 + 16 + 1 + lg(ways)) */
-    /* 64 * (37 - lg(4) + 5 + 16 + 1 + lg(16)) = 488 Bytes      */
-    /*==========================================================*/
-};
 
 class AccumulationTableData {
 public:
@@ -423,46 +362,105 @@ private:
     int pattern_len;
 };
 
+// ------------------------- Jail Table ------------------------- //
+class JailTable {
+private:
+    const int num_entries;
+    const int mask;
+
+    std::vector<bool> jail_table1;
+    std::vector<bool> jail_table2;
+
+    // Hash/folding for region base, then map to table index.
+    uint64_t hash(uint64_t key) const noexcept {
+        uint64_t x = static_cast<uint64_t>(key);
+        // Simple xorshift-style mixing
+        x ^= x >> 33;
+        x ^= x >> 17;
+        x ^= x >> 9;
+
+        return static_cast<uint64_t>(x) & mask;
+    }
+
+    uint64_t build_key(uint64_t region_num) {
+        uint64_t key = region_num & ((1ULL << 37) - 1);
+        // return custom_util::hash_index(key, this->index_len);
+        return key;
+    }
+
+public:
+    JailTable(int num_entries) : num_entries(num_entries), mask(num_entries - 1), jail_table1(num_entries, false), jail_table2(num_entries, false) {
+        assert(custom_util::is_pow2(num_entries));
+    }
+
+    void mark(uint64_t region_num) {
+        uint64_t key = build_key(region_num);
+        jail_table1[hash(key)] = true;
+        jail_table2[hash(key*1664525+1013904223)] = true;
+    }
+
+    // Clear the jail bit for a region (released).
+    void unmark(uint64_t region_num) {
+        uint64_t key = build_key(region_num);
+        jail_table1[hash(key)] = false;
+        jail_table2[hash(key*1664525+1013904223)] = false;
+    }
+
+    // Query whether a region is currently jailed.
+    bool in_jail(uint64_t region_num) {
+        uint64_t key = build_key(region_num);
+        return (jail_table1[hash(key)]&&jail_table2[hash(key*1664525+1013904223)]);
+    }
+};
+
 class Bingo {
 public:
-    Bingo(int pattern_len, int min_addr_width, int max_addr_width, int key_width, int filter_table_size, int filter_table_way, 
-          int accumulation_table_size, int accumulation_table_way, int pht_size, int pht_ways, int pb_size, int pb_way, int debug_level = 0, Cache* cache) :
+    Bingo(int pattern_len, int min_addr_width, int max_addr_width, int key_width,
+          int accumulation_table_size, int accumulation_table_way, int pht_size, int pht_ways, int jt_size, int pb_size, int pb_way, int debug_level = 0, Cache* cache) :
         cache(cache),
         pattern_len(pattern_len),
-        filter_table(filter_table_size, debug_level, filter_table_way),
         accumulation_table(accumulation_table_size, pattern_len, debug_level, accumulation_table_way),
         pht(pht_size, pattern_len, min_addr_width, max_addr_width, key_width, debug_level, pht_ways),
+        jail_table(jt_size),
         pf_buffer(pb_size, pattern_len, debug_level, pb_way) {}
 
     void access(uint64_t block_number, uint64_t pc) {
         uint64_t region_number = block_number / this->pattern_len;
         int region_offset = block_number % this->pattern_len;
         bool success = this->accumulation_table.set_pattern(region_number, region_offset);
-        if (success)
+        if (success) {
             return;
-        FilterTable::Entry* entry = this->filter_table.find(region_number);
-        if (!entry) {
-            /* trigger access */
-            this->filter_table.insert(region_number, pc, region_offset);
-            std::vector<int> pattern = this->find_in_phts(pc, block_number);
-            if (pattern.empty())
-                return;
+        } else {
+            if(!this->jail_table.in_jail(region_number)||!use_jail_table) {
+                /* trigger access */
+                std::vector<int> pattern = this->find_in_phts(pc, block_number);
+                if (!pattern.empty()){
+                    this->pf_buffer.insert(region_number, pattern);
+                }
 
-            this->pf_buffer.insert(region_number, pattern);
+                int num_valid_entries = this->accumulation_table.get_num_valid_entries_per_set(region_number);
+
+                bool sample = false;
+
+                if(num_valid_entries<=(AT_WAY/2)){
+                    sample=true;
+                } else {
+                    if(random_gen() < sample_rate){
+                        sample=true;
+                    }
+                }
+
+                if(!use_sampling||sample){
+                    AccumulationTable::Entry at_victim = this->accumulation_table.insert(region_number, pc, region_offset);
+                    if (at_victim.valid) {
+                        this->update_in_phts(at_victim, false);
+                    }
+                } else {
+                    this->jail_table.mark(region_number);
+                }
+            }
             return;
         }
-        if (entry->data.offset != region_offset) {
-            /* move from filter table to accumulation table */
-            uint64_t region_number = entry->key;
-            AccumulationTable::Entry victim = this->accumulation_table.insert(region_number, entry->data.pc, entry->data.offset);
-            this->accumulation_table.set_pattern(region_number, region_offset);
-            this->filter_table.erase(region_number);
-            if (victim.valid) {
-                /* move from accumulation table to pattern history table */
-                this->update_in_phts(victim);
-            }
-        }
-        return;
     }
 
     int prefetch(CACHE* cache, uint64_t block_number) {
@@ -473,21 +471,18 @@ public:
     void eviction(uint64_t block_number) {
         /* end of generation */
         uint64_t region_number = block_number / this->pattern_len;
-        this->filter_table.erase(region_number);
         AccumulationTable::Entry* entry = this->accumulation_table.erase(region_number);
         if (entry) {
             /* move from accumulation table to pattern history table */
-            this->update_in_phts(*entry);
+            this->update_in_phts(*entry, true);
+        } else {
+            this->jail_table.unmark(region_number);
         }
     }
 
     void set_debug_level(int debug_level) { this->debug_level = debug_level; }
 
     void log() {
-        std::cerr << "Filter table begin" << std::dec << std::endl;
-        std::cerr << this->filter_table.log();
-        std::cerr << "Filter table end" << std::endl;
-
         std::cerr << "Accumulation table begin" << std::dec << std::endl;
         std::cerr << this->accumulation_table.log();
         std::cerr << "Accumulation table end" << std::endl;
@@ -581,34 +576,45 @@ private:
         pht.update(pht_entry->key, prediction, mode);
     }
 
-    void update_in_phts(const AccumulationTable::Entry &entry) {
-        uint64_t pc = entry.data.pc;
-        uint64_t address = entry.key * this->pattern_len + entry.data.offset;
-        const std::vector<bool> &observation = entry.data.pattern;
+    void update_in_phts(const AccumulationTable::Entry &entry, bool is_end_of_generation) {
+        if(!is_end_of_generation) this->jail_table.mark(entry.key);
+        if(!use_only_training_on_eog || is_end_of_generation){        
+            uint64_t pc = entry.data.pc;
+            uint64_t address = entry.key * this->pattern_len + entry.data.offset;
+            const std::vector<bool> &observation = entry.data.pattern;
 
-        PatternHistoryTable::Entry *pht_pc_addr_entry = this->pht.find_pc_addr(pc, address);
-        if(pht_pc_addr_entry){
-            this->proba_update(pht_pc_addr_entry, observation);
-        } else {
-            this->pht.insert_pc_addr(pc, address, observation);
-        }
-
-        PatternHistoryTable::Entry *pht_pc_offset_entry = this->pht.find_pc_offset(pc, address);
-        if(pht_pc_offset_entry){
-            this->proba_update(pht_pc_offset_entry, observation);
-        } else {
-            this->pht.insert_pc_offset(pc, address, observation);
+            PatternHistoryTable::Entry *pht_pc_addr_entry = this->pht.find_pc_addr(pc, address);
+            if (pht_pc_addr_entry) {
+                this->proba_update(pht_pc_addr_entry, observation);
+            } else if (count_bits_set(pattern_bool2int(observation)) > 1) {
+                this->pht.insert_pc_addr(pc, address, observation);
+            }
+            
+            PatternHistoryTable::Entry *pht_pc_offset_entry = this->pht.find_pc_offset(pc, address);
+            if (pht_pc_offset_entry) {
+                this->proba_update(pht_pc_offset_entry, observation);
+            } else if (count_bits_set(pattern_bool2int(observation)) > 1) {
+                this->pht.insert_pc_offset(pc, address, observation);
+            }
         }
     }
-    CACHE* cache;
+
+    Cache* cache;
     int pattern_len;
-    FilterTable filter_table;
+
     AccumulationTable accumulation_table;
     PatternHistoryTable pht;
+    JailTable jail_table;
     PrefetchBuffer pf_buffer;
     int debug_level = 0;
 
     uint64_t proba_acc_thr = 50;
+
+    int sample_rate = 1;
+
+    bool use_sampling = true;
+    bool use_jail_table = true;
+    bool use_only_training_on_eog = true;
 };
 
 
