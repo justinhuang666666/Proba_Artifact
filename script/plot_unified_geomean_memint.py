@@ -13,26 +13,8 @@ from _SPEC2017_def_memint import (
     memint2006_ones, memint_spec_ones, memint_SPEC_shortcode
 )
 from _SPEC_WEIGHTS import SPEC2017_SHORTCODE_WEIGHTS
-try:
-    from _SPEC_WEIGHTS import SPEC2006_SHORTCODE_WEIGHTS
-except ImportError:
-    SPEC2006_SHORTCODE_WEIGHTS = None
 from _GAP_def import GAP_shortcode, gap_ones
 from _GAP_WEIGHTS import GAP_SHORTCODE_WEIGHTS
-
-
-def build_spec_weight_maps():
-    spec2006_weights = (
-        SPEC2006_SHORTCODE_WEIGHTS
-        if SPEC2006_SHORTCODE_WEIGHTS is not None
-        else {k: v for k, v in SPEC2017_SHORTCODE_WEIGHTS.items() if k in spec2006_ones}
-    )
-    spec2017_weights = {k: v for k, v in SPEC2017_SHORTCODE_WEIGHTS.items() if k in spec2017_ones}
-    spec_all_weights = dict(spec2006_weights)
-    spec_all_weights.update(SPEC2017_SHORTCODE_WEIGHTS)
-    return spec2006_weights, spec2017_weights, spec_all_weights
-
-SPEC2006_WEIGHTS, SPEC2017_WEIGHTS, SPEC_ALL_WEIGHTS = build_spec_weight_maps()
 
 # --- CONFIGURABLE ---
 LOG_DIR = os.path.join('results', 'json') 
@@ -55,9 +37,27 @@ IPC_MEAN_TYPE = 'harmonic'
 # 'GAP' - GAP graph benchmarks
 BENCHMARK_TYPE = 'SPEC_MEMINT'  # Change to 'SPEC_MEMINT' for memory-intensive SPEC traces
 
-# Select benchmarks based on type
-SPEC_MEMINT_WEIGHTS = {k: v for k, v in SPEC_ALL_WEIGHTS.items() if k in memint_spec_ones}
+# Build safe weight maps for each SPEC subset.
+def build_spec_weight_maps():
+    try:
+        from _SPEC_WEIGHTS import SPEC2006_SHORTCODE_WEIGHTS
+    except ImportError:
+        SPEC2006_SHORTCODE_WEIGHTS = None
 
+    spec2006_weights = (
+        SPEC2006_SHORTCODE_WEIGHTS
+        if SPEC2006_SHORTCODE_WEIGHTS is not None
+        else {k: v for k, v in SPEC2017_SHORTCODE_WEIGHTS.items() if k in spec2006_ones}
+    )
+    spec2017_weights = {k: v for k, v in SPEC2017_SHORTCODE_WEIGHTS.items() if k in spec2017_ones}
+    spec_all_weights = dict(spec2006_weights)
+    spec_all_weights.update(spec2017_weights)
+    spec_memint_weights = {k: v for k, v in spec_all_weights.items() if k in memint_spec_ones}
+    return spec2006_weights, spec2017_weights, spec_all_weights, spec_memint_weights
+
+SPEC2006_WEIGHTS, SPEC2017_WEIGHTS, SPEC_ALL_WEIGHTS, SPEC_MEMINT_WEIGHTS = build_spec_weight_maps()
+
+# Select benchmarks based on type
 if BENCHMARK_TYPE == 'GAP':
     BENCHMARKS = gap_ones
     BENCHMARK_WEIGHTS = GAP_SHORTCODE_WEIGHTS
@@ -79,18 +79,26 @@ else:  # Default to SPEC2017
     BENCHMARK_WEIGHTS = SPEC2017_WEIGHTS
     BENCHMARK_SHORTCODE = SPEC2017_shortcode
 
-# Filter out problematic benchmarks (only for SPEC)
-if BENCHMARK_TYPE != 'GAP':
-    BENCHMARKS = [bm for bm in BENCHMARKS if bm != 'milc433']
-    BENCHMARKS = [bm for bm in BENCHMARKS if bm != 'lbm470']
-    BENCHMARKS = [bm for bm in BENCHMARKS if bm != 'gromacs435']
-    BENCHMARKS = [bm for bm in BENCHMARKS if bm != 'exchange2648']
+# Keep exclusions explicit and empty by default for memory-intensive plots.
+EXCLUDED_BENCHMARKS = set()
+if BENCHMARK_TYPE != 'GAP' and EXCLUDED_BENCHMARKS:
+    BENCHMARKS = [bm for bm in BENCHMARKS if bm not in EXCLUDED_BENCHMARKS]
 
 BASELINE = 'no'
 
 # ABLATION STUDY
-PREFETCHERS = ['l2_sms_eviction', 'l2_bingo_eviction', 'l2_dspatch_eviction', 'l2_pmp_eviction', 'l2_gaze_eviction', 'l2_proba_eog_jail_sampling','l2_proba_eog_jail_sampling_calibration']
-# PREFETCHERS = ['l2_sms_eviction', 'l2_bingo_eviction', 'l2_dspatch_eviction', 'l2_gaze_eviction', 'l2_proba_eog_jail_sampling','l2_proba_eog_jail_sampling_calibration']
+# Match the directory names produced by simulate.py.
+PREFETCHERS = [
+    'l2_sms_eviction',
+    'l2_bingo_eviction',
+    'l2_dspatch_eviction',
+    'l2_pmp_eviction',
+    'l2_gaze_eviction',
+    'l2_proba_eviction',
+    'l2_proba_eog_jail_sampling_1',
+    'l2_proba_eog_jail_sampling_1_calibration',
+    'l2_proba_pmp_eog_jail_sampling_1',
+]
 if BASELINE not in PREFETCHERS:
     PREFETCHERS.append(BASELINE)
 
@@ -341,7 +349,7 @@ def gather_data(parse_func, metric_name):
                 continue
 
             for filename in os.listdir(path):
-                if filename.endswith('.json'):   # FIXED
+                if filename.endswith('.json'):
                     simpoint = normalize_trace_name(filename)
 
                     filepath = os.path.join(path, filename)
@@ -472,7 +480,6 @@ def compute_geomean_speedups(data, metric_type, baseline_name=None):
             
             for sp in simpoints:
                 sp_name = normalize_trace_name(sp)
-                
                 label = f"{benchmark}/{sp_name}"
                 
                 if metric_type == 'ipc':
@@ -569,12 +576,7 @@ def compute_trace_speedups(data, metric_type, baseline_name=None):
                 display_prefetchers.append(p)
         
         for sp in simpoints:
-            # Quick and dirty hack, sorry Jacob :(
-            if re.match(r'^\d+\.', sp):
-                sp_name = sp[len(re.match(r'^\d+\.', sp).group(0)):]
-            else:
-                sp_name = sp
-            
+            sp_name = normalize_trace_name(sp)
             label = f"{benchmark}/{sp_name}"
             all_trace_labels.append(label)
             
@@ -652,10 +654,12 @@ def create_plot(geomean_speedups, plot_prefetchers, metric_name, ylabel, filenam
             display_prefetchers.append('L2 Gaze')
         elif prefetcher == 'l2_proba_eviction':
             display_prefetchers.append('L2 Proba')
-        elif prefetcher == 'l2_proba_eog_jail_sampling':
+        elif prefetcher == 'l2_proba_eog_jail_sampling_1':
             display_prefetchers.append('L2 Proba EOG Jail Sampling')
-        elif prefetcher == 'l2_proba_eog_jail_sampling_calibration':
+        elif prefetcher == 'l2_proba_eog_jail_sampling_1_calibration':
             display_prefetchers.append('L2 Proba EOG Jail Sampling Calibration')
+        elif prefetcher == 'l2_proba_pmp_eog_jail_sampling_1':
+            display_prefetchers.append('L2 Proba+PMP EOG Jail Sampling')
         else:
             display_prefetchers.append(prefetcher)
     
@@ -866,6 +870,11 @@ def main():
     
     print("Gathering accuracy data...")
     acc_data = gather_data(parse_acc_from_file, 'accuracy')
+
+    print("Available data summary:")
+    for prefetcher in PREFETCHERS:
+        count = len(ipc_data.get(prefetcher, {}))
+        print(f"  {prefetcher}: {count} IPC files matched")
     
     # Compute geomean speedups for each metric
     print("--------------------------------")
