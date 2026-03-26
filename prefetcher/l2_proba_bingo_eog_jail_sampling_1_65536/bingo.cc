@@ -20,8 +20,8 @@ uint64_t roi_overpredict_cnt[NUM_CPUS][2] = {0};
 void CACHE::prefetcher_initialize() {
     std::cout << NAME << " Bingo with PrefetchBuffer prefetcher" << std::endl;
 
-    prefetchers = std::vector<std::unique_ptr<bingo_pb::Bingo>>(NUM_CPUS);
-    prefetchers[cpu] = std::make_unique<bingo_pb::Bingo>(
+    prefetchers = std::vector<bingo_pb::Bingo>(NUM_CPUS, 
+        bingo_pb::Bingo(
         bingo_pb::REGION_SIZE >> LOG2_BLOCK_SIZE,
         bingo_pb::MIN_ADDR_WIDTH,
         bingo_pb::MAX_ADDR_WIDTH,
@@ -35,6 +35,7 @@ void CACHE::prefetcher_initialize() {
         bingo_pb::PB_WAY,
         0,
         this
+        )
     );
 }
 
