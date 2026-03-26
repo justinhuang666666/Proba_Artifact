@@ -573,7 +573,7 @@ def setup_plot_style():
         'axes.labelsize': 14,
         'xtick.labelsize': 14,
         'ytick.labelsize': 14,
-        'legend.fontsize': 12
+        'legend.fontsize': 8
     })
 
 def print_benchmark_stats_csv(geomean_speedups, plot_prefetchers, metric_name):

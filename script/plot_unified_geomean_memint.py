@@ -8,13 +8,31 @@ import json
 
 plt.style.use('default')
 
-from _SPEC2017_def import (
+from _SPEC2017_def_memint import (
     SPEC2017_shortcode, spec2017_ones, spec2006_ones, memint2017_ones,
     memint2006_ones, memint_spec_ones, memint_SPEC_shortcode
 )
 from _SPEC_WEIGHTS import SPEC2017_SHORTCODE_WEIGHTS
+try:
+    from _SPEC_WEIGHTS import SPEC2006_SHORTCODE_WEIGHTS
+except ImportError:
+    SPEC2006_SHORTCODE_WEIGHTS = None
 from _GAP_def import GAP_shortcode, gap_ones
 from _GAP_WEIGHTS import GAP_SHORTCODE_WEIGHTS
+
+
+def build_spec_weight_maps():
+    spec2006_weights = (
+        SPEC2006_SHORTCODE_WEIGHTS
+        if SPEC2006_SHORTCODE_WEIGHTS is not None
+        else {k: v for k, v in SPEC2017_SHORTCODE_WEIGHTS.items() if k in spec2006_ones}
+    )
+    spec2017_weights = {k: v for k, v in SPEC2017_SHORTCODE_WEIGHTS.items() if k in spec2017_ones}
+    spec_all_weights = dict(spec2006_weights)
+    spec_all_weights.update(SPEC2017_SHORTCODE_WEIGHTS)
+    return spec2006_weights, spec2017_weights, spec_all_weights
+
+SPEC2006_WEIGHTS, SPEC2017_WEIGHTS, SPEC_ALL_WEIGHTS = build_spec_weight_maps()
 
 # --- CONFIGURABLE ---
 LOG_DIR = os.path.join('results', 'json') 
@@ -38,25 +56,27 @@ IPC_MEAN_TYPE = 'harmonic'
 BENCHMARK_TYPE = 'SPEC_MEMINT'  # Change to 'SPEC_MEMINT' for memory-intensive SPEC traces
 
 # Select benchmarks based on type
+SPEC_MEMINT_WEIGHTS = {k: v for k, v in SPEC_ALL_WEIGHTS.items() if k in memint_spec_ones}
+
 if BENCHMARK_TYPE == 'GAP':
     BENCHMARKS = gap_ones
     BENCHMARK_WEIGHTS = GAP_SHORTCODE_WEIGHTS
     BENCHMARK_SHORTCODE = GAP_shortcode
 elif BENCHMARK_TYPE == 'SPEC2006':
     BENCHMARKS = spec2006_ones
-    BENCHMARK_WEIGHTS = SPEC2017_SHORTCODE_WEIGHTS
+    BENCHMARK_WEIGHTS = SPEC2006_WEIGHTS
     BENCHMARK_SHORTCODE = SPEC2017_shortcode
 elif BENCHMARK_TYPE == 'SPEC_ALL':
     BENCHMARKS = list(SPEC2017_shortcode.keys())
-    BENCHMARK_WEIGHTS = SPEC2017_SHORTCODE_WEIGHTS
+    BENCHMARK_WEIGHTS = SPEC_ALL_WEIGHTS
     BENCHMARK_SHORTCODE = SPEC2017_shortcode
 elif BENCHMARK_TYPE == 'SPEC_MEMINT':
     BENCHMARKS = memint_spec_ones
-    BENCHMARK_WEIGHTS = SPEC2017_SHORTCODE_WEIGHTS
+    BENCHMARK_WEIGHTS = SPEC_MEMINT_WEIGHTS
     BENCHMARK_SHORTCODE = memint_SPEC_shortcode
 else:  # Default to SPEC2017
     BENCHMARKS = spec2017_ones
-    BENCHMARK_WEIGHTS = SPEC2017_SHORTCODE_WEIGHTS
+    BENCHMARK_WEIGHTS = SPEC2017_WEIGHTS
     BENCHMARK_SHORTCODE = SPEC2017_shortcode
 
 # Filter out problematic benchmarks (only for SPEC)
@@ -139,6 +159,15 @@ def get_roi(file_path):
         json_obj = json_obj[0]
 
     return json_obj.get('roi', {})
+
+
+def normalize_trace_name(name):
+    name = os.path.basename(name)
+    name = re.sub(r'\.(json|txt)$', '', name)
+    name = re.sub(r'\.champsimtrace(\.xz)?$', '', name)
+    if re.match(r'^\d+\.', name):
+        name = name.split('.', 1)[1]
+    return name
 
 # --- PARSING FUNCTIONS ---
 
@@ -313,10 +342,7 @@ def gather_data(parse_func, metric_name):
 
             for filename in os.listdir(path):
                 if filename.endswith('.json'):   # FIXED
-                    simpoint = filename.replace('.json', '')
-
-                    if re.match(r'^\d+\.', simpoint):
-                        simpoint = simpoint[len(re.match(r'^\d+\.', simpoint).group(0)):]
+                    simpoint = normalize_trace_name(filename)
 
                     filepath = os.path.join(path, filename)
                     result = parse_func(filepath)
@@ -445,13 +471,7 @@ def compute_geomean_speedups(data, metric_type, baseline_name=None):
             value_weights = []
             
             for sp in simpoints:
-                # Quick and dirty hack, sorry Jacob :(
-                # For SPEC traces: strip leading "600." prefix
-                # For GAP traces: use as-is (e.g., "bc-0")
-                if re.match(r'^\d+\.', sp):
-                    sp_name = sp[len(re.match(r'^\d+\.', sp).group(0)):]
-                else:
-                    sp_name = sp
+                sp_name = normalize_trace_name(sp)
                 
                 label = f"{benchmark}/{sp_name}"
                 
@@ -583,7 +603,7 @@ def setup_plot_style():
         'axes.labelsize': 14,
         'xtick.labelsize': 14,
         'ytick.labelsize': 14,
-        'legend.fontsize': 12
+        'legend.fontsize': 8
     })
 
 def print_benchmark_stats_csv(geomean_speedups, plot_prefetchers, metric_name):
