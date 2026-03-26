@@ -416,7 +416,7 @@ public:
 class Bingo {
 public:
     Bingo(int pattern_len, int min_addr_width, int max_addr_width, int key_width,
-          int accumulation_table_size, int accumulation_table_way, int pht_size, int pht_ways, int jt_size, int pb_size, int pb_way, int debug_level = 0, CACHE* cache) :
+          int accumulation_table_size, int accumulation_table_way, int pht_size, int pht_ways, int jt_size, int pb_size, int pb_way, int debug_level, CACHE* cache) :
         cache(cache),
         pattern_len(pattern_len),
         accumulation_table(accumulation_table_size, pattern_len, debug_level, accumulation_table_way),
