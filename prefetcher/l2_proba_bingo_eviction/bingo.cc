@@ -8,6 +8,7 @@
 /* Bingo settings */
 namespace {
 
+std::vector<bingo_pb::Bingo> prefetchers;
 
 /* stats */
 std::unordered_set<uint64_t> prefetched_blocks[NUM_CPUS];
