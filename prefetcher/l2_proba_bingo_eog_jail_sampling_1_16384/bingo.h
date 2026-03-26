@@ -195,7 +195,7 @@ public:
         return Super::find(key);
     }
 
-    std::vector<int> find(uint64_t pc, uint64_t address, Cache* cache) {
+    std::vector<int> find(uint64_t pc, uint64_t address, CACHE* cache) {
         uint64_t pc_addr_key = this->build_key_pc_addr(pc, address);
         Entry* pc_addr_entry = Super::find(pc_addr_key);
         if(pc_addr_entry != nullptr) {
@@ -416,7 +416,7 @@ public:
 class Bingo {
 public:
     Bingo(int pattern_len, int min_addr_width, int max_addr_width, int key_width,
-          int accumulation_table_size, int accumulation_table_way, int pht_size, int pht_ways, int jt_size, int pb_size, int pb_way, int debug_level = 0, Cache* cache) :
+          int accumulation_table_size, int accumulation_table_way, int pht_size, int pht_ways, int jt_size, int pb_size, int pb_way, int debug_level = 0, CACHE* cache) :
         cache(cache),
         pattern_len(pattern_len),
         accumulation_table(accumulation_table_size, pattern_len, debug_level, accumulation_table_way),
@@ -599,7 +599,7 @@ private:
         }
     }
 
-    Cache* cache;
+    CACHE* cache;
     int pattern_len;
 
     AccumulationTable accumulation_table;
