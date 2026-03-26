@@ -68,6 +68,10 @@ struct cache_stats {
     uint64_t l2_pf_to_l1 = 0;
     uint64_t mshr_full = 0;
 
+    uint64_t num_bingo_pc_addr_hit = 0;
+    uint64_t num_bingo_pc_offset_hit = 0;
+    uint64_t num_bingo_hit = 0;
+
     std::array<std::array<uint64_t, NUM_CPUS>, NUM_TYPES>
         hits = {};
     std::array<std::array<uint64_t, NUM_CPUS>, NUM_TYPES> misses = {};
