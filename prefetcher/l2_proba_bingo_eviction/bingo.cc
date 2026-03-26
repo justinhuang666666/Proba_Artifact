@@ -3,11 +3,13 @@
 #include <bits/stdc++.h>
 #include "custom_util.h"
 #include "bingo.h"
+#include <memory>
+
 
 /* Bingo settings */
 namespace {
 
-std::vector<bingo_pb::Bingo> prefetchers;
+std::vector<std::unique_ptr<bingo_pb::Bingo>> prefetchers;
 
 /* stats */
 std::unordered_set<uint64_t> prefetched_blocks[NUM_CPUS];
