@@ -27,7 +27,7 @@ PRINT_BENCH_STATS = False
 # --- IPC MEAN TYPE SELECTION ---
 # 'geomean' - Use geometric mean for IPC speedups (traditional approach)
 # 'harmonic' - Use harmonic mean for IPC speedups (time-weighted, more accurate for rates)
-IPC_MEAN_TYPE = 'geomean'
+IPC_MEAN_TYPE = 'harmonic'
 
 # --- BENCHMARK TYPE SELECTION ---
 # 'SPEC2017' - SPEC2017 benchmarks
