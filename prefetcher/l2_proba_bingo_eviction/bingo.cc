@@ -3,13 +3,11 @@
 #include <bits/stdc++.h>
 #include "custom_util.h"
 #include "bingo.h"
-#include <memory>
 
 
 /* Bingo settings */
 namespace {
 
-std::vector<std::unique_ptr<bingo_pb::Bingo>> prefetchers;
 
 /* stats */
 std::unordered_set<uint64_t> prefetched_blocks[NUM_CPUS];
@@ -18,32 +16,24 @@ uint64_t roi_prefetch_cnt[NUM_CPUS][2] = {0};
 uint64_t roi_cover_cnt[NUM_CPUS][2] = {0};
 uint64_t roi_overpredict_cnt[NUM_CPUS][2] = {0};
 } // namespace
-
 void CACHE::prefetcher_initialize() {
     std::cout << NAME << " Bingo with PrefetchBuffer prefetcher" << std::endl;
 
-    if (prefetchers.size() < NUM_CPUS) {
-        prefetchers.resize(NUM_CPUS);
-    }
-
-    if (!prefetchers[cpu]) {
-        prefetchers[cpu] = std::make_unique<bingo_pb::Bingo>(
-            bingo_pb::REGION_SIZE >> LOG2_BLOCK_SIZE,
-            bingo_pb::MIN_ADDR_WIDTH,
-            bingo_pb::MAX_ADDR_WIDTH,
-            bingo_pb::KEY_WIDTH,
-            bingo_pb::FT_SIZE,
-            bingo_pb::FT_WAY,
-            bingo_pb::AT_SIZE,
-            bingo_pb::AT_WAY,
-            bingo_pb::PHT_SIZE,
-            bingo_pb::PHT_WAY,
-            bingo_pb::PB_SIZE,
-            bingo_pb::PB_WAY,
-            0,
-            this
-        );
-    }
+    prefetchers = std::vector<std::unique_ptr<bingo_pb::Bingo>>(NUM_CPUS);
+    prefetchers[cpu] = std::make_unique<bingo_pb::Bingo>(
+        bingo_pb::REGION_SIZE >> LOG2_BLOCK_SIZE,
+        bingo_pb::MIN_ADDR_WIDTH,
+        bingo_pb::MAX_ADDR_WIDTH,
+        bingo_pb::KEY_WIDTH,
+        bingo_pb::AT_SIZE,
+        bingo_pb::AT_WAY,
+        bingo_pb::PHT_SIZE,
+        bingo_pb::PHT_WAY,
+        bingo_pb::PB_SIZE,
+        bingo_pb::PB_WAY,
+        0,
+        this
+    );
 }
 
 uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint32_t metadata_in) {
@@ -53,9 +43,9 @@ uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cac
     uint64_t block_number = addr >> LOG2_BLOCK_SIZE;
 
     /* call prefetcher and send prefetches */
-    prefetchers[cpu]->access(block_number, ip);
+    prefetchers[cpu].access(block_number, ip);
 
-    prefetchers[cpu]->prefetch(this, block_number);
+    prefetchers[cpu].prefetch(this, block_number);
 
     return metadata_in;
 }
@@ -63,7 +53,7 @@ uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cac
 uint32_t CACHE::prefetcher_cache_fill(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in) {
     uint64_t evicted_block_number = evicted_addr >> LOG2_BLOCK_SIZE;
 
-    prefetchers[cpu]->eviction(evicted_block_number);
+    prefetchers[cpu].eviction(evicted_block_number);
 
     return metadata_in;
 }
@@ -71,5 +61,5 @@ uint32_t CACHE::prefetcher_cache_fill(uint64_t addr, uint32_t set, uint32_t way,
 void CACHE::prefetcher_cycle_operate() {}
 
 void CACHE::prefetcher_final_stats() {
-    prefetchers[cpu]->log();
+    prefetchers[cpu].log();
 }
