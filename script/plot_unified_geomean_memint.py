@@ -113,7 +113,7 @@ HIGHLIGHT_LAST = False
 ONLY_GEOMEAN_LINE = False # BROKEN! 
 
 
-PLOT_WIDTH = 20
+PLOT_WIDTH = 24
 PLOT_HEIGHT = 8
 
 if ONLY_GEOMEAN_BAR:
@@ -649,6 +649,8 @@ def create_plot(geomean_speedups, plot_prefetchers, metric_name, ylabel, filenam
             display_prefetchers.append('L2 SMS')
         elif prefetcher == 'l2_bingo_eviction':
             display_prefetchers.append('L2 Bingo')
+        elif prefetcher == 'l2_proba_bingo_eog_jail_sampling_1':
+            display_prefetchers.append('L2 Proba+Bingo EOG Jail Sampling')
         elif prefetcher == 'l2_dspatch_eviction':
             display_prefetchers.append('L2 DSPatch')
         elif prefetcher == 'l2_pmp_eviction':
@@ -663,6 +665,8 @@ def create_plot(geomean_speedups, plot_prefetchers, metric_name, ylabel, filenam
             display_prefetchers.append('L2 Proba EOG Jail Sampling Calibration')
         elif prefetcher == 'l2_proba_pmp_eog_jail_sampling_1':
             display_prefetchers.append('L2 Proba+PMP EOG Jail Sampling')
+        elif prefetcher == 'l2_proba_bingo_offset_pc_offset_eog_jail_sampling_1':
+            display_prefetchers.append('L2 Proba+PMP Offset/PC+Offset EOG Jail Sampling')
         else:
             display_prefetchers.append(prefetcher)
     
