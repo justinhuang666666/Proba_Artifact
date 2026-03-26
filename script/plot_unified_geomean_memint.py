@@ -27,7 +27,7 @@ PRINT_BENCH_STATS = False
 # --- IPC MEAN TYPE SELECTION ---
 # 'geomean' - Use geometric mean for IPC speedups (traditional approach)
 # 'harmonic' - Use harmonic mean for IPC speedups (time-weighted, more accurate for rates)
-IPC_MEAN_TYPE = 'harmonic'
+IPC_MEAN_TYPE = 'geomean'
 
 # --- BENCHMARK TYPE SELECTION ---
 # 'SPEC2017' - SPEC2017 benchmarks
@@ -35,7 +35,7 @@ IPC_MEAN_TYPE = 'harmonic'
 # 'SPEC_ALL' - All SPEC benchmarks
 # 'SPEC_MEMINT' - Only memory-intensive SPEC traces listed in workloads.py
 # 'GAP' - GAP graph benchmarks
-BENCHMARK_TYPE = 'SPEC_ALL'  # Change to 'SPEC_MEMINT' for memory-intensive SPEC traces
+BENCHMARK_TYPE = 'SPEC_MEMINT'  # Change to 'SPEC_MEMINT' for memory-intensive SPEC traces
 
 # Select benchmarks based on type
 if BENCHMARK_TYPE == 'GAP':
