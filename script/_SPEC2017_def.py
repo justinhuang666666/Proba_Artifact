@@ -1,5 +1,5 @@
 
-SPEC2017_path = "~/Gaze-Spatial-Prefetcher/traces"
+SPEC2017_path = "../traces"
 
 memint2017_ones = [
     "gcc602", 

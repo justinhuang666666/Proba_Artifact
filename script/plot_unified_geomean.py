@@ -61,8 +61,8 @@ if BENCHMARK_TYPE != 'GAP':
 BASELINE = 'no'
 
 # ABLATION STUDY
-PREFETCHERS = ['l2_sms_eviction', 'l2_bingo_eviction', 'l2_dspatch_eviction', 'l2_pmp_eviction', 'l2_gaze_eviction', 'l2_proba_eog_jail_sampling','l2_proba_eog_jail_sampling_calibration']
-# PREFETCHERS = ['l2_sms_eviction', 'l2_bingo_eviction', 'l2_dspatch_eviction', 'l2_gaze_eviction', 'l2_proba_eog_jail_sampling','l2_proba_eog_jail_sampling_calibration']
+PREFETCHERS = ['l2_sms_eviction', 'l2_bingo_eviction', 'l2_proba_bingo_eog_jail_sampling_1', 'l2_dspatch_eviction', 'l2_proba_eog_jail_sampling_1', 'l2_proba_eog_jail_sampling_1_calibration', 'l2_pmp_eviction', 'l2_proba_pmp_eog_jail_sampling_1', 'l2_proba_pmp_offset_pc_offset_eog_jail_sampling_1', 'l2_gaze_eviction']
+
 if BASELINE not in PREFETCHERS:
     PREFETCHERS.append(BASELINE)
 
