@@ -17,14 +17,14 @@ from _GAP_WEIGHTS import GAP_SHORTCODE_WEIGHTS
 LOG_DIR = os.path.join('results', 'json') 
 GRAPH_DIR = 'graphs'
 OUTPUT = "png"  # Use PNG for PowerPoint compatibility
-PLOT_NAME = 'proba'
+PLOT_NAME = 'proba_sms'
 
 PRINT_BENCH_STATS = False
 
 # --- IPC MEAN TYPE SELECTION ---
 # 'geomean' - Use geometric mean for IPC speedups (traditional approach)
 # 'harmonic' - Use harmonic mean for IPC speedups (time-weighted, more accurate for rates)
-IPC_MEAN_TYPE = 'harmonic'
+IPC_MEAN_TYPE = 'geomean'
 
 # --- BENCHMARK TYPE SELECTION ---
 # 'SPEC2017' - SPEC2017 benchmarks

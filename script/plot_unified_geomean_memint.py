@@ -89,18 +89,7 @@ BASELINE = 'no'
 
 # ABLATION STUDY
 # Match the directory names produced by simulate.py.
-PREFETCHERS = [
-    'l2_sms_eviction',
-    'l2_bingo_eviction',
-    'l2_proba_bingo_eog_jail_sampling_1',
-    'l2_dspatch_eviction',
-    'l2_proba_eog_jail_sampling_1',
-    'l2_proba_eog_jail_sampling_1_calibration',
-    'l2_pmp_eviction',
-    'l2_proba_pmp_eog_jail_sampling_1',
-    'l2_proba_pmp_offset_pc_offset_eog_jail_sampling_1',
-    'l2_gaze_eviction',
-]
+PREFETCHERS = ['l2_sms_eviction', 'l2_bingo_eviction', 'l2_proba_bingo_eog_jail_sampling_1', 'l2_dspatch_eviction', 'l2_proba_eog_jail_sampling_1', 'l2_proba_eog_jail_sampling_1_calibration', 'l2_pmp_eviction', 'l2_proba_pmp_eog_jail_sampling_1', 'l2_proba_pmp_offset_pc_offset_eog_jail_sampling_1', 'l2_gaze_eviction']
 
 if BASELINE not in PREFETCHERS:
     PREFETCHERS.append(BASELINE)
