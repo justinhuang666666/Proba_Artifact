@@ -490,78 +490,51 @@ void Proba::log() {
     std::cout << this->pb.log();
     std::cout << "Prefetch buffer end" << std::endl;
 }
-void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry,
-                          bool is_end_of_generation,
-                          CACHE* cache) {
+
+void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is_end_of_generation, CACHE* cache) {
     if (is_end_of_generation) {
         if (is_debug) std::cout << "AGT end-of-generation eviction" << std::endl;
     } else {
         jt.mark(agt_entry.key);
-        if (is_debug) {
-            std::cout << "AGT capacity eviction, mark region 0x"
-                      << std::hex << agt_entry.key << std::dec << std::endl;
-        }
+        if (is_debug) std::cout << "AGT capacity eviction, mark region 0x" << std::hex << agt_entry.key << std::dec << std::endl;
     }
 
     if (use_only_training_on_eog && !is_end_of_generation)
         return;
 
-    const bool has_second =
-        (agt_entry.data.second_offset != static_cast<uint64_t>(-1));
+    const bool has_second = (agt_entry.data.second_offset != -1);
 
     auto get_observation_for_table =
         [&](const PatternHistoryTable& table) -> std::vector<int> {
             std::vector<int> obs = pattern_bool2int(agt_entry.data.pattern);
-
-            if (agt_entry.data.trigger_offset < obs.size())
-                obs[agt_entry.data.trigger_offset] = 0;
-
-            if (table.behavior == PatternHistoryTable::Behavior::OffsetOffset &&
-                has_second &&
-                agt_entry.data.second_offset < obs.size()) {
+            obs[agt_entry.data.trigger_offset] = 0;
+            if (table.behavior == PatternHistoryTable::Behavior::OffsetOffset && has_second) {
                 obs[agt_entry.data.second_offset] = 0;
             }
-
             return obs;
         };
 
     auto get_aligned_prediction_for_table =
         [&](const PatternHistoryTable& table,
             const std::vector<int>& stored_pattern) -> std::vector<int> {
-            std::vector<int> pred =
-                (table.behavior == PatternHistoryTable::Behavior::PC)
-                    ? rotate(stored_pattern, agt_entry.data.trigger_offset)
-                    : stored_pattern;
-
-            if (agt_entry.data.trigger_offset < pred.size())
-                pred[agt_entry.data.trigger_offset] = 0;
-
-            if (table.behavior == PatternHistoryTable::Behavior::OffsetOffset &&
-                has_second &&
-                agt_entry.data.second_offset < pred.size()) {
+            std::vector<int> pred = (table.behavior == PatternHistoryTable::Behavior::PC) ? rotate(stored_pattern, agt_entry.data.trigger_offset) : stored_pattern;
+            pred[agt_entry.data.trigger_offset] = 0;
+            if (table.behavior == PatternHistoryTable::Behavior::OffsetOffset && has_second) {
                 pred[agt_entry.data.second_offset] = 0;
             }
-
             return pred;
         };
 
     auto get_stored_pattern_for_table =
         [&](const PatternHistoryTable& table) -> std::vector<int> {
             std::vector<int> pat = pattern_bool2int(agt_entry.data.pattern);
-
             if (table.behavior == PatternHistoryTable::Behavior::PC) {
                 pat = rotate(pat, -static_cast<int>(agt_entry.data.trigger_offset));
             }
-
-            if (agt_entry.data.trigger_offset < pat.size())
-                pat[agt_entry.data.trigger_offset] = 0;
-
-            if (table.behavior == PatternHistoryTable::Behavior::OffsetOffset &&
-                has_second &&
-                agt_entry.data.second_offset < pat.size()) {
+            pat[agt_entry.data.trigger_offset] = 0;
+            if (table.behavior == PatternHistoryTable::Behavior::OffsetOffset && has_second) {
                 pat[agt_entry.data.second_offset] = 0;
             }
-
             return pat;
         };
 
@@ -572,12 +545,8 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry,
     for (size_t tidx = 0; tidx < phts.size(); ++tidx) {
         auto& table = phts[tidx];
 
-        if (has_second &&
-            table.behavior != PatternHistoryTable::Behavior::OffsetOffset)
-            continue;
-        if (!has_second &&
-            table.behavior == PatternHistoryTable::Behavior::OffsetOffset)
-            continue;
+        if (has_second && table.behavior != PatternHistoryTable::Behavior::OffsetOffset) continue;
+        if (!has_second && table.behavior == PatternHistoryTable::Behavior::OffsetOffset) continue;
 
         active_indices.push_back(tidx);
 
