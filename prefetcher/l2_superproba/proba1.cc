@@ -360,7 +360,7 @@ void Proba::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
     auto ft_entry = ft.find(region_num);
     if (!ft_entry && !agt_entry && (!this->jt.in_jail(region_num)||!use_jail_table)) {
         ft.insert(region_num, region_offset, pc);
-        return;
+        // return;
     } else if (ft_entry && ft_entry->data.trigger_offset != region_offset) { // SECOND OFFSET
         offset2 = region_offset;
         region_offset = ft_entry->data.trigger_offset;
