@@ -133,14 +133,14 @@ public:
 private:
     int width;
     void write_data(Entry& entry, custom_util::Table& table, int row);
-    uint64_t build_key(uint64_t pc, uint64_t offset, uint64_t offset2, uint64_t addr);
+    uint64_t build_key(uint64_t pc, uint64_t offset1, uint64_t offset2, uint64_t addr);
     uint32_t get_hash(uint32_t key);
 
 public:
     PatternHistoryTable(int size, int num_ways, int width, Behavior behavior);
-    void insert(uint64_t pc, uint64_t offset, uint64_t offset2, uint64_t addr, const std::vector<int> &pattern); 
-    void update(uint64_t pc, uint64_t offset, uint64_t offset2, uint64_t addr, const std::vector<int> &pattern, const custom_util::SaturatingCounter &mode);
-    Entry* find(uint64_t pc, uint64_t offset, uint64_t offset2, uint64_t addr);
+    void insert(uint64_t pc, uint64_t offset1, uint64_t offset2, uint64_t addr, const std::vector<int> &pattern); 
+    void update(uint64_t pc, uint64_t offset1, uint64_t offset2, uint64_t addr, const std::vector<int> &pattern, const custom_util::SaturatingCounter &mode);
+    Entry* find(uint64_t pc, uint64_t offset1, uint64_t offset2, uint64_t addr);
 
     std::string log();
 };
@@ -240,7 +240,7 @@ private:
     int ewma_alpha_den = 2;
 
     bool is_accuracy_targeter = false;
-    bool is_accuracy_correction = true;
+    bool is_accuracy_correction = false;
 
     uint64_t num_valid_update = 0;
     uint64_t total_num_valid_update = 0;
