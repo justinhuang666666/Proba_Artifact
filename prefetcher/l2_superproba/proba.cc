@@ -744,13 +744,8 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
         }
     }
 
-    for (auto& table : phts) {
-        if (has_second &&
-            table.behavior != PatternHistoryTable::Behavior::OffsetOffset)
-            continue;
-        if (!has_second &&
-            table.behavior == PatternHistoryTable::Behavior::OffsetOffset)
-            continue;
+    for (size_t idx : active_indices) {
+        auto& table = phts[idx];
 
         std::vector<int> observation = get_observation_for_table(table);
 
