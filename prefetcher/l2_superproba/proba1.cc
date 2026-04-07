@@ -504,6 +504,17 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
 
     const bool has_second = (agt_entry.data.second_offset != -1);
 
+    auto behavior_to_string = [](PatternHistoryTable::Behavior behavior) -> const char* {
+        switch (behavior) {
+            case PatternHistoryTable::Behavior::PC: return "PC";
+            case PatternHistoryTable::Behavior::PCOffset: return "PCOffset";
+            case PatternHistoryTable::Behavior::PCAddr: return "PCAddr";
+            case PatternHistoryTable::Behavior::Offset: return "Offset";
+            case PatternHistoryTable::Behavior::OffsetOffset: return "OffsetOffset";
+            default: return "Unknown";
+        }
+    };
+
     auto get_observation_for_table =
         [&](const PatternHistoryTable& table) -> std::vector<int> {
             std::vector<int> obs = pattern_bool2int(agt_entry.data.pattern);
@@ -580,7 +591,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
             }
 
             if (is_debug) {
-                std::cout << "PC Tag:             " << agt_entry.data.pc << std::endl;
+                std::cout << "Table behavior: " << behavior_to_string(table.behavior) << std::endl;
                 std::cout << "Observation:        "
                           << custom_util::pattern_to_string(observation) << std::endl;
                 std::cout << "Prediction:         "
