@@ -517,8 +517,13 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
     auto get_aligned_prediction_for_table =
         [&](const PatternHistoryTable& table,
             const std::vector<int>& stored_pattern) -> std::vector<int> {
-            std::vector<int> pred = (table.behavior == PatternHistoryTable::Behavior::PC) ? rotate(stored_pattern, agt_entry.data.trigger_offset) : stored_pattern;
-            pred[agt_entry.data.trigger_offset] = 0;
+            std::vector<int> pred = stored_pattern;
+            if (table.behavior == PatternHistoryTable::Behavior::PC) {
+                pred[0] = 0;
+                pred = rotate(pred, agt_entry.data.trigger_offset);
+            } else {
+                pred[agt_entry.data.trigger_offset] = 0;
+            }
             if (table.behavior == PatternHistoryTable::Behavior::OffsetOffset && has_second) {
                 pred[agt_entry.data.second_offset] = 0;
             }
@@ -529,9 +534,11 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
         [&](const PatternHistoryTable& table) -> std::vector<int> {
             std::vector<int> pat = pattern_bool2int(agt_entry.data.pattern);
             if (table.behavior == PatternHistoryTable::Behavior::PC) {
+                pat[agt_entry.data.trigger_offset] = 0;
                 pat = rotate(pat, -static_cast<int>(agt_entry.data.trigger_offset));
+            } else {
+                pat[agt_entry.data.trigger_offset] = 0;
             }
-            pat[agt_entry.data.trigger_offset] = 0;
             if (table.behavior == PatternHistoryTable::Behavior::OffsetOffset && has_second) {
                 pat[agt_entry.data.second_offset] = 0;
             }
