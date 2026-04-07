@@ -563,7 +563,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
     for (size_t tidx = 0; tidx < phts.size(); ++tidx) {
         auto& table = phts[tidx];
 
-        if (has_second && table.behavior != PatternHistoryTable::Behavior::OffsetOffset) continue;
+        // if (has_second && table.behavior != PatternHistoryTable::Behavior::OffsetOffset) continue;
         if (!has_second && table.behavior == PatternHistoryTable::Behavior::OffsetOffset) continue;
 
         active_indices.push_back(tidx);
