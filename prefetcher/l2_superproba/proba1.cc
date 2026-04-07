@@ -490,262 +490,349 @@ void Proba::log() {
     std::cout << this->pb.log();
     std::cout << "Prefetch buffer end" << std::endl;
 }
-
-void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is_end_of_generation, CACHE* cache) {
-    if(is_end_of_generation) {
+void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry,
+                          bool is_end_of_generation,
+                          CACHE* cache) {
+    if (is_end_of_generation) {
         if (is_debug) std::cout << "AGT end-of-generation eviction" << std::endl;
     } else {
         jt.mark(agt_entry.key);
-        if (is_debug) std::cout << "AGT capacity eviction, mark region 0x" <<std::hex<<agt_entry.key<<std::dec<< std::endl;
+        if (is_debug) {
+            std::cout << "AGT capacity eviction, mark region 0x"
+                      << std::hex << agt_entry.key << std::dec << std::endl;
+        }
     }
 
-    if(!use_only_training_on_eog || is_end_of_generation) {
-        std::vector<int> accumulated_prediction;
-        std::vector<int> accuracy(phts.size(), 0);
-        // // Loop over all PHTs
-        // const std::vector<int> &observation = pattern_bool2int(agt_entry.data.pattern);
-        int acc_id=0;
-        bool has_second = (agt_entry.data.second_offset != -1);
-        for (auto& table : phts) {
-            if (has_second && table.behavior != PatternHistoryTable::Behavior::OffsetOffset) continue;
-            if (!has_second && table.behavior == PatternHistoryTable::Behavior::OffsetOffset) continue;
-            const std::vector<int> &observation;
-            if (table.behavior == PatternHistoryTable::Behavior::OffsetOffset) {
-                observation = pattern_bool2int(agt_entry.data.pattern);
-                observation[agt_entry.data.trigger_offset] = 0;
-                observation[agt_entry.data.second_offset] = 0;
-            } else {
-                observation = pattern_bool2int(agt_entry.data.pattern);
-                observation[agt_entry.data.trigger_offset] = 0;
-            } 
+    if (use_only_training_on_eog && !is_end_of_generation)
+        return;
 
-            uint64_t local_accuracy = 0;
-            auto pht_entry = table.find(agt_entry.data.pc,agt_entry.data.trigger_offset,agt_entry.data.second_offset,agt_entry.data.addr);
-            if(pht_entry) {
-                if (is_debug) std::cout << "PHT entry found" << std::endl;
-                auto rotated_pattern = table.behavior == PatternHistoryTable::Behavior::PC? rotate(pht_entry->data.pattern,agt_entry.data.trigger_offset):pht_entry->data.pattern;
-                if (accumulated_prediction.empty()) {
-                    accumulated_prediction = rotated_pattern; // first table
+    const bool has_second =
+        (agt_entry.data.second_offset != static_cast<uint64_t>(-1));
+
+    auto get_observation_for_table =
+        [&](const PatternHistoryTable& table) -> std::vector<int> {
+            std::vector<int> obs = pattern_bool2int(agt_entry.data.pattern);
+
+            if (agt_entry.data.trigger_offset < obs.size())
+                obs[agt_entry.data.trigger_offset] = 0;
+
+            if (table.behavior == PatternHistoryTable::Behavior::OffsetOffset &&
+                has_second &&
+                agt_entry.data.second_offset < obs.size()) {
+                obs[agt_entry.data.second_offset] = 0;
+            }
+
+            return obs;
+        };
+
+    auto get_aligned_prediction_for_table =
+        [&](const PatternHistoryTable& table,
+            const std::vector<int>& stored_pattern) -> std::vector<int> {
+            std::vector<int> pred =
+                (table.behavior == PatternHistoryTable::Behavior::PC)
+                    ? rotate(stored_pattern, agt_entry.data.trigger_offset)
+                    : stored_pattern;
+
+            if (agt_entry.data.trigger_offset < pred.size())
+                pred[agt_entry.data.trigger_offset] = 0;
+
+            if (table.behavior == PatternHistoryTable::Behavior::OffsetOffset &&
+                has_second &&
+                agt_entry.data.second_offset < pred.size()) {
+                pred[agt_entry.data.second_offset] = 0;
+            }
+
+            return pred;
+        };
+
+    auto get_stored_pattern_for_table =
+        [&](const PatternHistoryTable& table) -> std::vector<int> {
+            std::vector<int> pat = pattern_bool2int(agt_entry.data.pattern);
+
+            if (table.behavior == PatternHistoryTable::Behavior::PC) {
+                pat = rotate(pat, -static_cast<int>(agt_entry.data.trigger_offset));
+            }
+
+            if (agt_entry.data.trigger_offset < pat.size())
+                pat[agt_entry.data.trigger_offset] = 0;
+
+            if (table.behavior == PatternHistoryTable::Behavior::OffsetOffset &&
+                has_second &&
+                agt_entry.data.second_offset < pat.size()) {
+                pat[agt_entry.data.second_offset] = 0;
+            }
+
+            return pat;
+        };
+
+    std::vector<int> accuracy(phts.size(), 0);
+    std::vector<int> accumulated_prediction;
+    std::vector<size_t> active_indices;
+
+    for (size_t tidx = 0; tidx < phts.size(); ++tidx) {
+        auto& table = phts[tidx];
+
+        if (has_second &&
+            table.behavior != PatternHistoryTable::Behavior::OffsetOffset)
+            continue;
+        if (!has_second &&
+            table.behavior == PatternHistoryTable::Behavior::OffsetOffset)
+            continue;
+
+        active_indices.push_back(tidx);
+
+        std::vector<int> observation = get_observation_for_table(table);
+
+        uint64_t local_accuracy = 0;
+        auto pht_entry = table.find(agt_entry.data.pc,
+                                    agt_entry.data.trigger_offset,
+                                    agt_entry.data.second_offset,
+                                    agt_entry.data.addr);
+
+        if (pht_entry) {
+            if (is_debug) std::cout << "PHT entry found" << std::endl;
+
+            std::vector<int> aligned_prediction =
+                get_aligned_prediction_for_table(table, pht_entry->data.pattern);
+
+            if (accumulated_prediction.empty()) {
+                accumulated_prediction = aligned_prediction;
+            } else {
+                for (size_t i = 0; i < accumulated_prediction.size(); ++i) {
+                    accumulated_prediction[i] |= aligned_prediction[i];
+                }
+            }
+
+            if (is_debug) {
+                std::cout << "PC Tag:             " << agt_entry.data.pc << std::endl;
+                std::cout << "Observation:        "
+                          << custom_util::pattern_to_string(observation) << std::endl;
+                std::cout << "Prediction:         "
+                          << custom_util::pattern_to_string(aligned_prediction) << std::endl;
+            }
+
+            uint64_t pop_count_prediction = count_bits_set(aligned_prediction);
+            uint64_t same_count_observation_prediction =
+                count_bits_same(aligned_prediction, observation);
+
+            if (pop_count_prediction > 0) {
+                local_accuracy =
+                    (100ULL * same_count_observation_prediction) / pop_count_prediction;
+            }
+        }
+
+        accuracy[tidx] = local_accuracy;
+    }
+
+    std::sort(active_indices.begin(), active_indices.end(),
+              [&](size_t a, size_t b) {
+                  return accuracy[a] > accuracy[b];
+              });
+
+    bool first_iteration = true;
+    std::vector<int> accumulated_marginal_prediction;
+
+    for (size_t idx : active_indices) {
+        auto& table = phts[idx];
+        auto pht_entry = table.find(agt_entry.data.pc,
+                                    agt_entry.data.trigger_offset,
+                                    agt_entry.data.second_offset,
+                                    agt_entry.data.addr);
+        if (!pht_entry) continue;
+
+        std::vector<int> observation = get_observation_for_table(table);
+        std::vector<int> current_prediction =
+            get_aligned_prediction_for_table(table, pht_entry->data.pattern);
+
+        if (first_iteration) {
+            first_iteration = false;
+
+            uint64_t local_accuracy = accuracy[idx];
+            uint64_t estimated_global_accuracy = ewma_accuracy_estimate;
+
+            int64_t local_acc_thr = proba_acc_thr;
+            int64_t corrected_accuracy = static_cast<int64_t>(local_accuracy);
+
+            if (is_accuracy_targeter && ewma_global_accuracy != 0) {
+                int64_t act = static_cast<int64_t>(ewma_global_accuracy);
+                int64_t thr = static_cast<int64_t>(proba_acc_thr);
+                local_acc_thr = 2 * thr - act;
+            }
+
+            if (is_accuracy_correction && estimated_global_accuracy != 0) {
+                int64_t loc = static_cast<int64_t>(local_accuracy);
+                int64_t act = static_cast<int64_t>(ewma_global_accuracy);
+                int64_t est = static_cast<int64_t>(estimated_global_accuracy);
+                corrected_accuracy = (loc * act) / est;
+            }
+
+            local_acc_thr = std::clamp<int64_t>(local_acc_thr, 0, 100);
+            corrected_accuracy = std::clamp<int64_t>(corrected_accuracy, 0, 100);
+
+            if (is_debug) {
+                std::cout << "Local Accuracy:            " << local_accuracy << std::endl;
+                std::cout << "Actual Global Accuracy:    " << ewma_global_accuracy << std::endl;
+                std::cout << "Estimated Global Accuracy: " << estimated_global_accuracy << std::endl;
+                std::cout << "Corrected Accuracy:        " << corrected_accuracy << std::endl;
+            }
+
+            uint64_t pop_count_prediction = count_bits_set(current_prediction);
+
+            if (pop_count_prediction > 0) {
+                if (corrected_accuracy > local_acc_thr) {
+                    pht_entry->data.mode.inc();
+                    if (is_debug) {
+                        std::cout << "Accuracy greater than threshold, increment mode: "
+                                  << pht_entry->data.mode.get_cnt() << std::endl;
+                    }
                 } else {
-                    // Accumulate union element-wise
-                    for (size_t i = 0; i < accumulated_prediction.size(); ++i) {
-                        accumulated_prediction[i] |= rotated_pattern[i];
+                    pht_entry->data.mode.dec();
+                    if (is_debug) {
+                        std::cout << "Accuracy less than threshold, decrement mode: "
+                                  << pht_entry->data.mode.get_cnt() << std::endl;
                     }
-                }
-                custom_util::SaturatingCounter mode = pht_entry->data.mode;
-
-                if (is_debug) {
-                    std::cout << "PC Tag:             " << agt_entry.data.pc <<std::endl;
-                    std::cout << "Observation:        " << custom_util::pattern_to_string(observation)<< std::endl;
-                    std::cout << "Prediction:         " << custom_util::pattern_to_string(pht_entry->data.pattern) <<std::endl;
-                }
-
-                auto safe_minus_one = [](uint32_t x) -> uint64_t {
-                    return (x > 0) ? static_cast<uint64_t>(x - 1) : 0ULL;
-                };
-
-                uint64_t pop_count_observation = safe_minus_one(count_bits_set(observation));
-                uint64_t pop_count_prediction = safe_minus_one(count_bits_set(rotated_pattern));
-                uint64_t same_count_observation_prediction = safe_minus_one(count_bits_same(rotated_pattern, observation));
-
-                {
-                    double tmp = 0.0;
-                    if (pop_count_prediction > 0) {
-                        tmp = (static_cast<double>(same_count_observation_prediction) /
-                               static_cast<double>(pop_count_prediction)) * 100.0;
-                    }
-                    local_accuracy = static_cast<uint64_t>(tmp);
-                }
-
-
-            }
-            accuracy[acc_id++]=local_accuracy;
-
-        }
-
-        // 1. Create a vector of indices
-        std::vector<size_t> indices(accuracy.size());
-        for (size_t i = 0; i < accuracy.size(); ++i)
-            indices[i] = i;
-
-        // 2. Sort indices by size values descending
-        std::sort(indices.begin(), indices.end(),
-        [&accuracy](size_t a, size_t b) {
-            return accuracy[a] > accuracy[b]; // descending
-        });
-
-        bool first_iteration = true;
-        // 3. Iterate phts in order of sorted size
-
-        std::vector<int> accumulated_marginal_prediction;
-
-        for (size_t idx : indices) {
-            auto pht_entry = phts[idx].find(agt_entry.data.pc,agt_entry.data.trigger_offset,agt_entry.data.second_offset,agt_entry.data.addr);
-            if(!pht_entry) continue;
-            if(first_iteration) {
-                first_iteration=false;
-                uint64_t local_accuracy = accuracy[idx];
-
-                uint64_t estimated_global_accuracy = ewma_accuracy_estimate;
-
-                int64_t local_acc_thr = proba_acc_thr;
-                int64_t corrected_accuracy = static_cast<int64_t>(local_accuracy);
-
-                if (is_accuracy_targeter && (ewma_global_accuracy != 0)) {
-                    int64_t act = static_cast<int64_t>(ewma_global_accuracy);
-                    int64_t thr = static_cast<int64_t>(proba_acc_thr);
-                    local_acc_thr = 2 * thr - act;
-                }
-
-                if (is_accuracy_correction && estimated_global_accuracy != 0) {
-                    int64_t loc = static_cast<int64_t>(local_accuracy);
-                    int64_t act = static_cast<int64_t>(ewma_global_accuracy);
-                    int64_t est = static_cast<int64_t>(estimated_global_accuracy);
-                    corrected_accuracy = (loc * act) / est; //multiplication/div more mathematically accurate.
-                }
-
-                local_acc_thr = std::clamp<int64_t>(local_acc_thr, 0, 100);
-                corrected_accuracy = std::clamp<int64_t>(corrected_accuracy, 0, 100);
-
-                if (is_debug) {
-                    std::cout << "Local Accuracy:            " << std::dec << local_accuracy <<std::endl;
-                    std::cout << "Actual Global Accuracy:    " << std::dec << ewma_global_accuracy <<std::endl;
-                    std::cout << "Estimated Global Accuracy: " << std::dec << estimated_global_accuracy <<std::endl;
-                    std::cout << "Corrected Accuracy:        " << std::dec << corrected_accuracy <<std::endl;
-                }
-                auto safe_minus_one = [](uint32_t x) -> uint64_t {
-                    return (x > 0) ? static_cast<uint64_t>(x - 1) : 0ULL;
-                };
-
-                uint64_t pop_count_prediction = safe_minus_one(count_bits_set(pht_entry->data.pattern));
-
-                if(pop_count_prediction > 0) {
-                    if(corrected_accuracy > local_acc_thr) {
-                        pht_entry->data.mode.inc(); //Sam replaced these in case the satcount wasn't updated if by copy constructer.
-                        if (is_debug) std::cout << "Accuracy greater than threshold, increment mode: " << pht_entry->data.mode.get_cnt() <<std::endl;
-                    } else {
-                        pht_entry->data.mode.dec();
-                        if (is_debug) std::cout << "Accuracy less than threshold, decrement mode: " << pht_entry->data.mode.get_cnt() <<std::endl;
-                    }
-                }
-                accumulated_marginal_prediction = phts[idx].behavior == PatternHistoryTable::Behavior::PC ? rotate(pht_entry->data.pattern,agt_entry.data.trigger_offset):pht_entry->data.pattern;
-
-            } else {
-                std::vector<int> marginal_prediction = phts[idx].behavior == PatternHistoryTable::Behavior::PC? rotate(pht_entry->data.pattern,agt_entry.data.trigger_offset):pht_entry->data.pattern;
-                std::vector<int> marginal_obs = observation;
-                auto rotated_pattern = marginal_prediction;
-
-                for (size_t i = 0; i < accumulated_marginal_prediction.size(); ++i) {
-                    if(i==agt_entry.data.trigger_offset) continue; // TODO: right? We aren't margining out the offset bit, to counteract the -1? Probably cleaner/safer to 0 out the offset bit for all these calcs.
-                    marginal_prediction[i]  = rotated_pattern[i]==0? marginal_prediction[i]:0;
-                    marginal_obs[i]  = rotated_pattern[i]==0? marginal_obs[i]:0;
-                }
-
-                auto safe_minus_one = [](uint32_t x) -> uint64_t {
-                    return (x > 0) ? static_cast<uint64_t>(x - 1) : 0ULL;
-                };
-
-                uint64_t pop_count_observation = safe_minus_one(count_bits_set(marginal_obs));
-                uint64_t pop_count_prediction = safe_minus_one(count_bits_set(marginal_prediction));
-                uint64_t same_count_observation_prediction = safe_minus_one(count_bits_same(marginal_prediction,marginal_obs));
-                    double local_maccuracy = 0.0;
-                {
-                    double tmp = 0.0;
-
-                    if (pop_count_prediction > 0) {
-                        tmp = (static_cast<double>(same_count_observation_prediction) /
-                               static_cast<double>(pop_count_prediction)) * 100.0;
-                                                   local_maccuracy = static_cast<uint64_t>(tmp);
-                    }
-
-                }
-
-                int64_t local_acc_thr = proba_acc_thr;
-                int64_t corrected_accuracy = static_cast<int64_t>(local_maccuracy);
-
-                if (is_accuracy_targeter && (ewma_global_accuracy != 0)) {
-                    int64_t act = static_cast<int64_t>(ewma_global_accuracy);
-                    int64_t thr = static_cast<int64_t>(proba_acc_thr);
-                    local_acc_thr = 2 * thr - act;
-                }
-
-                if (is_accuracy_correction) {
-                    uint64_t estimated_global_accuracy = ewma_accuracy_estimate;
-                    int64_t loc = static_cast<int64_t>(local_maccuracy);
-                    int64_t act = static_cast<int64_t>(ewma_global_accuracy);
-                    int64_t est = static_cast<int64_t>(estimated_global_accuracy);
-                    corrected_accuracy = (loc * act) / est; //multiplication/div more mathematically accurate.
-                }
-
-                local_acc_thr = std::clamp<int64_t>(local_acc_thr, 0, 100);
-                corrected_accuracy = std::clamp<int64_t>(corrected_accuracy, 0, 100);
-                if(pop_count_prediction > 0) {
-                    if(corrected_accuracy > local_acc_thr) {
-                        pht_entry->data.mode.inc(); //Sam replaced these in case the satcount wasn't updated if by copy constructer.
-                        if (is_debug) std::cout << "Accuracy greater than threshold, increment mode: " << pht_entry->data.mode.get_cnt() <<std::endl;
-                    } else {
-                        pht_entry->data.mode.dec();
-                        if (is_debug) std::cout << "Accuracy less than threshold, decrement mode: " << pht_entry->data.mode.get_cnt() <<std::endl;
-                    }
-                }
-
-                // Accumulate union element-wise
-                for (size_t i = 0; i < accumulated_marginal_prediction.size(); ++i) {
-                    accumulated_marginal_prediction[i] |= rotated_pattern[i];
-                }
-            }
-        }
-        
-        bool has_second = (agt_entry.data.second_offset != -1);
-        for (auto& table : phts) {
-            if (has_second && table.behavior != PatternHistoryTable::Behavior::OffsetOffset) continue;
-            if (!has_second && table.behavior == PatternHistoryTable::Behavior::OffsetOffset) continue;
-            auto pht_entry = table.find(agt_entry.data.pc,agt_entry.data.trigger_offset,agt_entry.data.second_offset,agt_entry.data.addr);
-            if(pht_entry) {
-                custom_util::SaturatingCounter mode = pht_entry->data.mode;
-                std::pair<uint64_t,uint64_t> probs = get_probs(mode);
-                auto prediction = table.behavior == PatternHistoryTable::Behavior::PC ? rotate(pht_entry->data.pattern,agt_entry.data.trigger_offset):pht_entry->data.pattern;
-
-                uint64_t insert_probability = probs.first;
-                uint64_t delete_probability = probs.second;
-
-                if (is_debug) {
-                    std::cout << "insert probability: " << std::dec << insert_probability <<std::endl;
-                    std::cout << "delete probability: " << std::dec << delete_probability << std::endl;
-                }
-
-                for (int i = 0; i < NUM_BLOCKS; ++i) {
-                    double rand = random_gen();
-                    if (prediction[i]&&!observation[i]) {
-                        // If the address is in prediction but not found in new observation
-                        // Delete with a chance based on delete_probability
-                        if (rand < delete_probability) {
-                            prediction[i] = 0;
-                        }
-                    } else if (!prediction[i]&&observation[i]) {
-                        // If the address is in new observation but not found in prediction
-                        // Insert with a chance based on insert_probability
-                        if (rand < insert_probability) {
-                            prediction[i] = PF_FILL_L2;
-                        }
-                    }
-                }
-
-                if (is_debug) {
-                    std::cout << "Updated Prediction: " << custom_util::pattern_to_string(prediction) <<std::endl;
-                }
-
-                table.update(agt_entry.data.pc, agt_entry.data.trigger_offset, agt_entry.data.second_offset,agt_entry.data.addr, prediction, mode);
-            } else {
-                if(count_bits_set(pattern_bool2int(agt_entry.data.pattern))>1) {
-                    if (is_debug) std::cout << "PHT entry not found, insert new PHT entry" <<std::endl;
-                    table.insert(agt_entry.data.pc, agt_entry.data.trigger_offset, agt_entry.data.second_offset,agt_entry.data.addr,  table.behavior == 
-                    PatternHistoryTable::Behavior::PC ? rotate(pattern_bool2int(agt_entry.data.pattern), -agt_entry.data.trigger_offset) : pattern_bool2int(agt_entry.data.pattern));
                 }
             }
 
-        }
+            accumulated_marginal_prediction = current_prediction;
+        } else {
+            std::vector<int> marginal_prediction = current_prediction;
+            std::vector<int> marginal_obs = observation;
 
+            for (size_t i = 0; i < accumulated_marginal_prediction.size(); ++i) {
+                if (accumulated_marginal_prediction[i] != 0) {
+                    marginal_prediction[i] = 0;
+                    marginal_obs[i] = 0;
+                }
+            }
+
+            uint64_t pop_count_prediction = count_bits_set(marginal_prediction);
+            uint64_t same_count_observation_prediction =
+                count_bits_same(marginal_prediction, marginal_obs);
+
+            uint64_t local_maccuracy = 0;
+            if (pop_count_prediction > 0) {
+                local_maccuracy =
+                    (100ULL * same_count_observation_prediction) / pop_count_prediction;
+            }
+
+            int64_t local_acc_thr = proba_acc_thr;
+            int64_t corrected_accuracy = static_cast<int64_t>(local_maccuracy);
+
+            if (is_accuracy_targeter && ewma_global_accuracy != 0) {
+                int64_t act = static_cast<int64_t>(ewma_global_accuracy);
+                int64_t thr = static_cast<int64_t>(proba_acc_thr);
+                local_acc_thr = 2 * thr - act;
+            }
+
+            if (is_accuracy_correction && ewma_accuracy_estimate != 0) {
+                int64_t loc = static_cast<int64_t>(local_maccuracy);
+                int64_t act = static_cast<int64_t>(ewma_global_accuracy);
+                int64_t est = static_cast<int64_t>(ewma_accuracy_estimate);
+                corrected_accuracy = (loc * act) / est;
+            }
+
+            local_acc_thr = std::clamp<int64_t>(local_acc_thr, 0, 100);
+            corrected_accuracy = std::clamp<int64_t>(corrected_accuracy, 0, 100);
+
+            if (pop_count_prediction > 0) {
+                if (corrected_accuracy > local_acc_thr) {
+                    pht_entry->data.mode.inc();
+                    if (is_debug) {
+                        std::cout << "Accuracy greater than threshold, increment mode: "
+                                  << pht_entry->data.mode.get_cnt() << std::endl;
+                    }
+                } else {
+                    pht_entry->data.mode.dec();
+                    if (is_debug) {
+                        std::cout << "Accuracy less than threshold, decrement mode: "
+                                  << pht_entry->data.mode.get_cnt() << std::endl;
+                    }
+                }
+            }
+
+            for (size_t i = 0; i < accumulated_marginal_prediction.size(); ++i) {
+                accumulated_marginal_prediction[i] |= current_prediction[i];
+            }
+        }
+    }
+
+    for (auto& table : phts) {
+        if (has_second &&
+            table.behavior != PatternHistoryTable::Behavior::OffsetOffset)
+            continue;
+        if (!has_second &&
+            table.behavior == PatternHistoryTable::Behavior::OffsetOffset)
+            continue;
+
+        std::vector<int> observation = get_observation_for_table(table);
+
+        auto pht_entry = table.find(agt_entry.data.pc,
+                                    agt_entry.data.trigger_offset,
+                                    agt_entry.data.second_offset,
+                                    agt_entry.data.addr);
+
+        if (pht_entry) {
+            custom_util::SaturatingCounter mode = pht_entry->data.mode;
+            auto probs = get_probs(mode);
+
+            std::vector<int> prediction =
+                get_aligned_prediction_for_table(table, pht_entry->data.pattern);
+
+            uint64_t insert_probability = probs.first;
+            uint64_t delete_probability = probs.second;
+
+            if (is_debug) {
+                std::cout << "insert probability: " << insert_probability << std::endl;
+                std::cout << "delete probability: " << delete_probability << std::endl;
+            }
+
+            for (int i = 0; i < NUM_BLOCKS; ++i) {
+                double rand = random_gen();
+
+                if (prediction[i] && !observation[i]) {
+                    if (rand < delete_probability) {
+                        prediction[i] = 0;
+                    }
+                } else if (!prediction[i] && observation[i]) {
+                    if (rand < insert_probability) {
+                        prediction[i] = PF_FILL_L2;
+                    }
+                }
+            }
+
+            if (is_debug) {
+                std::cout << "Updated Prediction: "
+                          << custom_util::pattern_to_string(prediction) << std::endl;
+            }
+
+            std::vector<int> stored_prediction = prediction;
+            if (table.behavior == PatternHistoryTable::Behavior::PC) {
+                stored_prediction =
+                    rotate(prediction, -static_cast<int>(agt_entry.data.trigger_offset));
+            }
+
+            table.update(agt_entry.data.pc,
+                         agt_entry.data.trigger_offset,
+                         agt_entry.data.second_offset,
+                         agt_entry.data.addr,
+                         stored_prediction,
+                         mode);
+        } else {
+            std::vector<int> initial_pattern = get_stored_pattern_for_table(table);
+
+            if (count_bits_set(initial_pattern) > 0) {
+                if (is_debug) {
+                    std::cout << "PHT entry not found, insert new PHT entry" << std::endl;
+                }
+
+                table.insert(agt_entry.data.pc,
+                             agt_entry.data.trigger_offset,
+                             agt_entry.data.second_offset,
+                             agt_entry.data.addr,
+                             initial_pattern);
+            }
+        }
     }
 }
 

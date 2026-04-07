@@ -60,7 +60,7 @@ uint32_t count_bits_same(const std::vector<int> &pattern1, const std::vector<int
 // ------------------------- Active Generation Table ------------------------- //
 struct ActiveGenerationTableData {
     uint64_t trigger_offset;
-    int64_t second_offset;
+    uint64_t second_offset;
     uint64_t pc;
     uint64_t addr;
     std::vector<bool> pattern;
