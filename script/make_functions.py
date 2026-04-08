@@ -28,7 +28,7 @@ def modify_config_1core_l2_prefetcher(branch, prefetcher, name):
         load_dict = json.load(f)
 
     load_dict['ooo_cpu'][0]['branch_predictor'] = branch
-    load_dict['L1D']['prefetcher'] = 'ip-stride'
+    load_dict['L1D']['prefetcher'] = 'ip_stride'
     load_dict['L2C']['prefetcher'] = prefetcher
     load_dict['executable_name'] = name
 
