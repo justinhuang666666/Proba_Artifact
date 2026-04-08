@@ -331,9 +331,9 @@ Proba::Proba(int agt_size, int agt_ways, int ft_size, int ft_ways, int pht_size,
     agt(agt_size, agt_ways),
       phts(std::vector<PatternHistoryTable>{
           PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::PC),
-          PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::PCOffset),
-          PatternHistoryTable(pht_size*pht_size, pht_ways, width, PatternHistoryTable::Behavior::PCAddr),
-          PatternHistoryTable(NUM_BLOCKS, 1, width, PatternHistoryTable::Behavior::Offset),
+        //   PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::PCOffset),
+        //   PatternHistoryTable(pht_size*pht_size, pht_ways, width, PatternHistoryTable::Behavior::PCAddr),
+          PatternHistoryTable(NUM_BLOCKS, 1, width, PatternHistoryTable::Behavior::Offset)
           PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::OffsetOffset)
       }),
 jt(jt_size),ft(ft_size, ft_ways), pb(pb_size, NUM_BLOCKS, 0, pb_ways), is_debug(is_debug), cpu(cpu) {
