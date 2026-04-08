@@ -599,22 +599,22 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
         if (pht_entry) {
             if (is_debug) std::cout << "PHT entry found" << std::endl;
 
-            std::vector<int> aligned_prediction = get_prediction_for_table(table, pht_entry->data.pattern);
+            std::vector<int> prediction = get_prediction_for_table(table, pht_entry->data.pattern);
 
             if (accumulated_prediction.empty()) {
-                accumulated_prediction = aligned_prediction;
+                accumulated_prediction = prediction;
             } else {
-                accumulated_prediction = union_patterns(accumulated_prediction, aligned_prediction);
+                accumulated_prediction = union_patterns(accumulated_prediction, prediction);
             }
 
             if (is_debug) {
                 std::cout << "Table behavior:     " << behavior_to_string(table.behavior) << std::endl;
                 std::cout << "Observation:        " << custom_util::pattern_to_string(observation) << std::endl;
-                std::cout << "Prediction:         " << custom_util::pattern_to_string(aligned_prediction) << std::endl;
+                std::cout << "Prediction:         " << custom_util::pattern_to_string(prediction) << std::endl;
             }
 
-            uint64_t pop_count_prediction = count_bits_set(aligned_prediction);
-            uint64_t same_count_observation_prediction = count_bits_same(aligned_prediction, observation);
+            uint64_t pop_count_prediction = count_bits_set(prediction);
+            uint64_t same_count_observation_prediction = count_bits_same(prediction, observation);
 
             if (pop_count_prediction > 0) {
                 local_accuracy =
@@ -638,7 +638,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
         if (!pht_entry) continue;
 
         std::vector<int> observation = get_observation_for_table(table);
-        std::vector<int> current_prediction = get_prediction_for_table(table, pht_entry->data.pattern);
+        std::vector<int> prediction = get_prediction_for_table(table, pht_entry->data.pattern);
 
         if (first_iteration) {
             first_iteration = false;
@@ -672,7 +672,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
                 std::cout << "Corrected Accuracy:        " << corrected_accuracy << std::endl;
             }
 
-            uint64_t pop_count_prediction = count_bits_set(current_prediction);
+            uint64_t pop_count_prediction = count_bits_set(prediction);
 
             if (pop_count_prediction > 0) {
                 if (corrected_accuracy > local_acc_thr) {
@@ -688,9 +688,9 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
                 }
             }
 
-            accumulated_marginal_prediction = current_prediction;
+            accumulated_marginal_prediction = prediction;
         } else {
-            std::vector<int> marginal_prediction = current_prediction;
+            std::vector<int> marginal_prediction = prediction;
             std::vector<int> marginal_obs = observation;
 
             for (size_t i = 0; i < accumulated_marginal_prediction.size(); ++i) {
@@ -741,7 +741,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
                     }
                 }
             }
-            accumulated_marginal_prediction = union_patterns(accumulated_marginal_prediction,current_prediction);
+            accumulated_marginal_prediction = union_patterns(accumulated_marginal_prediction,prediction);
         }
     }
 
@@ -785,9 +785,6 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
             }
 
             std::vector<int> stored_prediction = prediction;
-            if (table.behavior == PatternHistoryTable::Behavior::PC) {
-                stored_prediction = rotate(prediction, -static_cast<int>(agt_entry.data.trigger_offset));
-            }
 
             table.update(agt_entry.data.pc, agt_entry.data.trigger_offset, agt_entry.data.second_offset, agt_entry.data.addr, stored_prediction, mode);
         } else {
