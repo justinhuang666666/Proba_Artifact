@@ -540,7 +540,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
         [&](const PatternHistoryTable& table) -> std::vector<int> {
             std::vector<int> obs = pattern_bool2int(agt_entry.data.pattern);
             obs[agt_entry.data.trigger_offset] = 0;
-            if (table.behavior == PatternHistoryTable::Behavior::OffsetOffset && has_second) {
+            if (table.behavior == PatternHistoryTable::Behavior::OffsetOffset) {
                 obs[agt_entry.data.second_offset] = 0;
             }
             return obs;
@@ -556,7 +556,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
             } else {
                 pred[agt_entry.data.trigger_offset] = 0;
             }
-            if (table.behavior == PatternHistoryTable::Behavior::OffsetOffset && has_second) {
+            if (table.behavior == PatternHistoryTable::Behavior::OffsetOffset) {
                 pred[agt_entry.data.second_offset] = 0;
             }
             return pred;
