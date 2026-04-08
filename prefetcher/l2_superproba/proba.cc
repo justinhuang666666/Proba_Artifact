@@ -283,7 +283,7 @@ int PrefetchBuffer::prefetch(CACHE* cache, uint64_t block_num) {
     Super::set_mru(key);
     int pf_issued = 0;
     std::vector<int>& pattern = entry->data.pattern;
-    pattern[region_offset] = 0; /* accessed block will be automatically fetched if necessary (miss) */
+
     int pf_offset;
     /* prefetch blocks that are close to the recent access first (locality!) */
     for (int d = 1; d < this->pattern_len; d += 1) {
@@ -427,7 +427,7 @@ void Proba::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
             // After unioning all patterns, insert
             if (!accumulated_pattern.empty()) {
 
-                pb.insert(region_num, accumulated_pattern);
+                pb.insert(region_num, accumulated_pattern); 
 
                 if (is_debug) {
                     std::cout << "Accumulated pattern: " << custom_util::pattern_to_string(accumulated_pattern) << std::endl;
