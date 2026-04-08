@@ -257,8 +257,18 @@ void PrefetchBuffer::insert(uint64_t region_num, std::vector<int> pattern) {
         std::cerr << "PrefetchBuffer::insert(region_number=0x" << std::hex << region_num
                   << ", pattern=" << custom_util::pattern_to_string(pattern) << ")" << std::dec << std::endl;
     uint64_t key = this->build_key(region_num);
-    Super::insert(key, {pattern});
-    Super::rp_insert(key);
+    auto entry = find(key);
+    if (!entry) {
+        Super::insert(key, {pattern});
+        Super::rp_insert(key);
+    } else {
+        for (int i = 0; i < NUM_BLOCKS; i++) {
+            if (pattern[i] == PF_FILL_L2) {
+                entry->data.pattern[i] = PF_FILL_L2;
+            }
+        }
+        Super::rp_promote(key);
+    }
 }
 
 int PrefetchBuffer::prefetch(CACHE* cache, uint64_t block_num) {
@@ -390,8 +400,22 @@ void Proba::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
                 if (!entry) continue;
 
                 auto aligned_pattern = (table.behavior == PatternHistoryTable::Behavior::PC) ? rotate(entry->data.pattern, region_offset) : entry->data.pattern;
-                
-                if (is_debug) std::cout << "Pattern from table:" << custom_util::pattern_to_string(aligned_pattern) <<std::endl;
+
+                auto behavior_to_string = [](PatternHistoryTable::Behavior behavior) -> const char* {
+                    switch (behavior) {
+                        case PatternHistoryTable::Behavior::PC: return "PC";
+                        case PatternHistoryTable::Behavior::PCOffset: return "PCOffset";
+                        case PatternHistoryTable::Behavior::PCAddr: return "PCAddr";
+                        case PatternHistoryTable::Behavior::Offset: return "Offset";
+                        case PatternHistoryTable::Behavior::OffsetOffset: return "OffsetOffset";
+                        default: return "Unknown";
+                    }
+                };
+
+                if (is_debug) {
+                    std::cout << "Table behavior: " << behavior_to_string(table.behavior) << std::endl;
+                    std::cout << "Pattern:" << custom_util::pattern_to_string(aligned_pattern) <<std::endl;
+                }
                 
                 if (accumulated_pattern.empty()) {
                     accumulated_pattern = aligned_pattern;
