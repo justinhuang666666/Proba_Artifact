@@ -59,8 +59,7 @@ uint64_t FilterTable::build_key(uint64_t region_num) {
 }
 
 void FilterTable::write_data(Entry& entry, custom_util::Table& table, int row) {
-    uint64_t key = custom_util::hash_index(entry.key, this->index_len);
-    table.set_cell(row, 0, key);
+    table.set_cell(row, 0, entry.key);
     table.set_cell(row, 1, entry.data.trigger_offset);
     table.set_cell(row, 2, entry.data.pc);
 }
