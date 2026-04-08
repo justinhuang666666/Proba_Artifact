@@ -543,16 +543,18 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
             if (table.behavior == PatternHistoryTable::Behavior::OffsetOffset) {
                 obs[agt_entry.data.second_offset] = 0;
             }
+            if (table.behavior == PatternHistoryTable::Behavior::PC) {
+                obs = rotate(obs, -static_cast<int>(agt_entry.data.trigger_offset));
+            }
             return obs;
         };
 
-    auto get_aligned_prediction_for_table =
+    auto get_prediction_for_table =
         [&](const PatternHistoryTable& table,
             const std::vector<int>& stored_pattern) -> std::vector<int> {
             std::vector<int> pred = stored_pattern;
             if (table.behavior == PatternHistoryTable::Behavior::PC) {
                 pred[0] = 0;
-                pred = rotate(pred, agt_entry.data.trigger_offset);
             } else {
                 pred[agt_entry.data.trigger_offset] = 0;
             }
@@ -571,7 +573,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
             } else {
                 pat[agt_entry.data.trigger_offset] = 0;
             }
-            if (table.behavior == PatternHistoryTable::Behavior::OffsetOffset && has_second) {
+            if (table.behavior == PatternHistoryTable::Behavior::OffsetOffset) {
                 pat[agt_entry.data.second_offset] = 0;
             }
             return pat;
@@ -597,7 +599,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
         if (pht_entry) {
             if (is_debug) std::cout << "PHT entry found" << std::endl;
 
-            std::vector<int> aligned_prediction = get_aligned_prediction_for_table(table, pht_entry->data.pattern);
+            std::vector<int> aligned_prediction = get_prediction_for_table(table, pht_entry->data.pattern);
 
             if (accumulated_prediction.empty()) {
                 accumulated_prediction = aligned_prediction;
@@ -636,7 +638,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
         if (!pht_entry) continue;
 
         std::vector<int> observation = get_observation_for_table(table);
-        std::vector<int> current_prediction = get_aligned_prediction_for_table(table, pht_entry->data.pattern);
+        std::vector<int> current_prediction = get_prediction_for_table(table, pht_entry->data.pattern);
 
         if (first_iteration) {
             first_iteration = false;
@@ -754,7 +756,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
             custom_util::SaturatingCounter mode = pht_entry->data.mode;
             auto probs = get_probs(mode);
 
-            std::vector<int> prediction = get_aligned_prediction_for_table(table, pht_entry->data.pattern);
+            std::vector<int> prediction = get_prediction_for_table(table, pht_entry->data.pattern);
 
             uint64_t insert_probability = probs.first;
             uint64_t delete_probability = probs.second;
