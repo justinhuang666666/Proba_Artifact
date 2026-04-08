@@ -413,8 +413,8 @@ void Proba::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
                 };
 
                 if (is_debug) {
-                    std::cout << "Table behavior: " << behavior_to_string(table.behavior) << std::endl;
-                    std::cout << "Pattern:" << custom_util::pattern_to_string(aligned_pattern) <<std::endl;
+                    std::cout << "Table behavior:      " << behavior_to_string(table.behavior) << std::endl;
+                    std::cout << "Pattern:             " << custom_util::pattern_to_string(aligned_pattern) <<std::endl;
                 }
                 
                 if (accumulated_pattern.empty()) {
@@ -430,9 +430,7 @@ void Proba::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
                 pb.insert(region_num, accumulated_pattern);
 
                 if (is_debug) {
-                    std::cout << "Accumulated pattern: "
-                              << custom_util::pattern_to_string(accumulated_pattern)
-                              << std::endl;
+                    std::cout << "Accumulated pattern: " << custom_util::pattern_to_string(accumulated_pattern) << std::endl;
                 }
             }
 
@@ -501,17 +499,17 @@ int Proba::prefetch(CACHE* cache, uint64_t block_num) {
 }
 
 void Proba::log() {
-    std::cout << "Accumulation table begin" << std::dec << std::endl;
-    std::cout << this->agt.log();
-    std::cout << "Accumulation table end" << std::endl;
+    // std::cout << "Accumulation table begin" << std::dec << std::endl;
+    // std::cout << this->agt.log();
+    // std::cout << "Accumulation table end" << std::endl;
 
     //std::cout << "Pattern table begin" << std::dec << std::endl;
     //std::cout << this->pht.log();
     //std::cout << "Pattern table end" << std::endl;
 
-    std::cout << "Prefetch buffer begin" << std::dec << std::endl;
-    std::cout << this->pb.log();
-    std::cout << "Prefetch buffer end" << std::endl;
+    // std::cout << "Prefetch buffer begin" << std::dec << std::endl;
+    // std::cout << this->pb.log();
+    // std::cout << "Prefetch buffer end" << std::endl;
 }
 
 void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is_end_of_generation, CACHE* cache) {
@@ -594,16 +592,12 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
         std::vector<int> observation = get_observation_for_table(table);
 
         uint64_t local_accuracy = 0;
-        auto pht_entry = table.find(agt_entry.data.pc,
-                                    agt_entry.data.trigger_offset,
-                                    agt_entry.data.second_offset,
-                                    agt_entry.data.addr);
+        auto pht_entry = table.find(agt_entry.data.pc, agt_entry.data.trigger_offset, agt_entry.data.second_offset, agt_entry.data.addr);
 
         if (pht_entry) {
             if (is_debug) std::cout << "PHT entry found" << std::endl;
 
-            std::vector<int> aligned_prediction =
-                get_aligned_prediction_for_table(table, pht_entry->data.pattern);
+            std::vector<int> aligned_prediction = get_aligned_prediction_for_table(table, pht_entry->data.pattern);
 
             if (accumulated_prediction.empty()) {
                 accumulated_prediction = aligned_prediction;
@@ -612,16 +606,13 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
             }
 
             if (is_debug) {
-                std::cout << "Table behavior: " << behavior_to_string(table.behavior) << std::endl;
-                std::cout << "Observation:        "
-                          << custom_util::pattern_to_string(observation) << std::endl;
-                std::cout << "Prediction:         "
-                          << custom_util::pattern_to_string(aligned_prediction) << std::endl;
+                std::cout << "Table behavior:     " << behavior_to_string(table.behavior) << std::endl;
+                std::cout << "Observation:        " << custom_util::pattern_to_string(observation) << std::endl;
+                std::cout << "Prediction:         " << custom_util::pattern_to_string(aligned_prediction) << std::endl;
             }
 
             uint64_t pop_count_prediction = count_bits_set(aligned_prediction);
-            uint64_t same_count_observation_prediction =
-                count_bits_same(aligned_prediction, observation);
+            uint64_t same_count_observation_prediction = count_bits_same(aligned_prediction, observation);
 
             if (pop_count_prediction > 0) {
                 local_accuracy =
@@ -632,10 +623,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
         accuracy[tidx] = local_accuracy;
     }
 
-    std::sort(active_indices.begin(), active_indices.end(),
-              [&](size_t a, size_t b) {
-                  return accuracy[a] > accuracy[b];
-              });
+    std::sort(active_indices.begin(), active_indices.end(),[&](size_t a, size_t b) { return accuracy[a] > accuracy[b];});
 
     bool first_iteration = true;
 
@@ -643,15 +631,12 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
 
     for (size_t idx : active_indices) {
         auto& table = phts[idx];
-        auto pht_entry = table.find(agt_entry.data.pc,
-                                    agt_entry.data.trigger_offset,
-                                    agt_entry.data.second_offset,
-                                    agt_entry.data.addr);
+        auto pht_entry = table.find(agt_entry.data.pc, agt_entry.data.trigger_offset, agt_entry.data.second_offset, agt_entry.data.addr);
+        
         if (!pht_entry) continue;
 
         std::vector<int> observation = get_observation_for_table(table);
-        std::vector<int> current_prediction =
-            get_aligned_prediction_for_table(table, pht_entry->data.pattern);
+        std::vector<int> current_prediction = get_aligned_prediction_for_table(table, pht_entry->data.pattern);
 
         if (first_iteration) {
             first_iteration = false;
@@ -691,14 +676,12 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
                 if (corrected_accuracy > local_acc_thr) {
                     pht_entry->data.mode.inc();
                     if (is_debug) {
-                        std::cout << "Accuracy greater than threshold, increment mode: "
-                                  << pht_entry->data.mode.get_cnt() << std::endl;
+                        std::cout << "Accuracy greater than threshold, increment mode: " << pht_entry->data.mode.get_cnt() << std::endl;
                     }
                 } else {
                     pht_entry->data.mode.dec();
                     if (is_debug) {
-                        std::cout << "Accuracy less than threshold, decrement mode: "
-                                  << pht_entry->data.mode.get_cnt() << std::endl;
+                        std::cout << "Accuracy less than threshold, decrement mode: " << pht_entry->data.mode.get_cnt() << std::endl;
                     }
                 }
             }
@@ -716,8 +699,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
             }
 
             uint64_t pop_count_prediction = count_bits_set(marginal_prediction);
-            uint64_t same_count_observation_prediction =
-                count_bits_same(marginal_prediction, marginal_obs);
+            uint64_t same_count_observation_prediction = count_bits_same(marginal_prediction, marginal_obs);
 
             uint64_t local_maccuracy = 0;
             if (pop_count_prediction > 0) {
@@ -748,14 +730,12 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
                 if (corrected_accuracy > local_acc_thr) {
                     pht_entry->data.mode.inc();
                     if (is_debug) {
-                        std::cout << "Accuracy greater than threshold, increment mode: "
-                                  << pht_entry->data.mode.get_cnt() << std::endl;
+                        std::cout << "Accuracy greater than threshold, increment mode: " << pht_entry->data.mode.get_cnt() << std::endl;
                     }
                 } else {
                     pht_entry->data.mode.dec();
                     if (is_debug) {
-                        std::cout << "Accuracy less than threshold, decrement mode: "
-                                  << pht_entry->data.mode.get_cnt() << std::endl;
+                        std::cout << "Accuracy less than threshold, decrement mode: " << pht_entry->data.mode.get_cnt() << std::endl;
                     }
                 }
             }
@@ -768,17 +748,13 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
 
         std::vector<int> observation = get_observation_for_table(table);
 
-        auto pht_entry = table.find(agt_entry.data.pc,
-                                    agt_entry.data.trigger_offset,
-                                    agt_entry.data.second_offset,
-                                    agt_entry.data.addr);
+        auto pht_entry = table.find(agt_entry.data.pc, agt_entry.data.trigger_offset, agt_entry.data.second_offset, agt_entry.data.addr);
 
         if (pht_entry) {
             custom_util::SaturatingCounter mode = pht_entry->data.mode;
             auto probs = get_probs(mode);
 
-            std::vector<int> prediction =
-                get_aligned_prediction_for_table(table, pht_entry->data.pattern);
+            std::vector<int> prediction = get_aligned_prediction_for_table(table, pht_entry->data.pattern);
 
             uint64_t insert_probability = probs.first;
             uint64_t delete_probability = probs.second;
@@ -803,22 +779,15 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
             }
 
             if (is_debug) {
-                std::cout << "Updated Prediction: "
-                          << custom_util::pattern_to_string(prediction) << std::endl;
+                std::cout << "Updated Prediction: " << custom_util::pattern_to_string(prediction) << std::endl;
             }
 
             std::vector<int> stored_prediction = prediction;
             if (table.behavior == PatternHistoryTable::Behavior::PC) {
-                stored_prediction =
-                    rotate(prediction, -static_cast<int>(agt_entry.data.trigger_offset));
+                stored_prediction = rotate(prediction, -static_cast<int>(agt_entry.data.trigger_offset));
             }
 
-            table.update(agt_entry.data.pc,
-                         agt_entry.data.trigger_offset,
-                         agt_entry.data.second_offset,
-                         agt_entry.data.addr,
-                         stored_prediction,
-                         mode);
+            table.update(agt_entry.data.pc, agt_entry.data.trigger_offset, agt_entry.data.second_offset, agt_entry.data.addr, stored_prediction, mode);
         } else {
             std::vector<int> initial_pattern = get_stored_pattern_for_table(table);
 
@@ -827,11 +796,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
                     std::cout << "PHT entry not found, insert new PHT entry" << std::endl;
                 }
 
-                table.insert(agt_entry.data.pc,
-                             agt_entry.data.trigger_offset,
-                             agt_entry.data.second_offset,
-                             agt_entry.data.addr,
-                             initial_pattern);
+                table.insert(agt_entry.data.pc, agt_entry.data.trigger_offset, agt_entry.data.second_offset, agt_entry.data.addr, initial_pattern);
             }
         }
     }
