@@ -103,7 +103,7 @@ ActiveGenerationTable::Entry* ActiveGenerationTable::erase(uint64_t region_num) 
 }
 
 std::string ActiveGenerationTable::log() {
-    std::vector<std::string> headers({"RegionNum", "Trigger Offset", "PC", "Pattern"});
+    std::vector<std::string> headers({"RegionNum", "Trigger Offset", "Second Offset", "PC", "Addr", "Pattern"});
     return Super::log(headers);
 }
 
@@ -318,7 +318,7 @@ uint64_t PrefetchBuffer::build_key(uint64_t region_num) {
 
 // ------------------------- Proba functions ------------------------- //
 
-Proba::Proba(int agt_size, int agt_ways, int ft_size, int ft_ways, int pht_size, int pht_ways, int width, int jt_size, int pb_size, int pb_ways, bool is_debug, int cpu = 0) :
+Proba::Proba(int agt_size, int agt_ways, int ft_size, int ft_ways, int pht_size, int pht_ways, int width, int jt_size, int pb_size, int pb_ways, bool is_debug, int cpu) :
     agt(agt_size, agt_ways),
       phts(std::vector<PatternHistoryTable>{
           PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::PC),
@@ -455,7 +455,9 @@ void Proba::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
 
 void Proba::eviction(uint64_t block_num, CACHE* cache) {
     if (is_debug) std::cout << "Eviction" <<std::endl;
+
     uint64_t region_num = block_num >> (LOG2_REGION_SIZE - LOG2_BLOCK_SIZE);
+    ft.erase(region_num);
     auto entry = agt.erase(region_num);
 
     if (entry) {
