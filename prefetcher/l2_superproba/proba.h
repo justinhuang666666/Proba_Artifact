@@ -53,6 +53,8 @@ constexpr int PF_FILL_L3 = 3;
 // ------------------------- Util Functions ------------------------- //
 std::vector<int> pattern_bool2int(std::vector<bool> pattern);
 std::vector<int> rotate(const std::vector<int>& pattern, int offset);
+int union_pattern_value(int a, int b);
+std::vector<int> union_patterns(const std::vector<int>& p1, const std::vector<int>& p2);
 uint64_t random_gen();
 uint32_t count_bits_set(const std::vector<int> &pattern);
 uint32_t count_bits_same(const std::vector<int> &pattern1, const std::vector<int> &pattern2);

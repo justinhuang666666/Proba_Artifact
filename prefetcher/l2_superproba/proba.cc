@@ -396,9 +396,7 @@ void Proba::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
                 if (accumulated_pattern.empty()) {
                     accumulated_pattern = aligned_pattern;
                 } else {
-                    for (size_t i = 0; i < accumulated_pattern.size(); ++i) {
-                        accumulated_pattern[i] |= aligned_pattern[i];
-                    }
+                    accumulated_pattern = union_patterns(accumulated_pattern, aligned_pattern);
                 }
             }
 
@@ -586,9 +584,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
             if (accumulated_prediction.empty()) {
                 accumulated_prediction = aligned_prediction;
             } else {
-                for (size_t i = 0; i < accumulated_prediction.size(); ++i) {
-                    accumulated_prediction[i] |= aligned_prediction[i];
-                }
+                accumulated_prediction = union_patterns(accumulated_prediction, aligned_prediction);
             }
 
             if (is_debug) {
@@ -739,10 +735,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
                     }
                 }
             }
-
-            for (size_t i = 0; i < accumulated_marginal_prediction.size(); ++i) {
-                accumulated_marginal_prediction[i] |= current_prediction[i];
-            }
+            accumulated_marginal_prediction = union_patterns(accumulated_marginal_prediction,current_prediction);
         }
     }
 
@@ -847,6 +840,23 @@ std::vector<int> rotate(const std::vector<int>& pattern, int offset) {
 
     std::vector<int> result = pattern;
     std::rotate(result.begin(), result.end() - off, result.end());
+    return result;
+}
+
+int union_pattern_value(int a, int b) {
+    if (a == 0) return b;
+    if (b == 0) return a;
+    assert(a == b && "Pattern union got conflicting nonzero values");
+    return a;
+}
+
+std::vector<int> union_patterns(const std::vector<int>& p1, const std::vector<int>& p2) {
+    assert(p1.size() == p2.size() && "Patterns must have the same length");
+
+    std::vector<int> result(p1.size(), 0);
+    for (size_t i = 0; i < p1.size(); ++i) {
+        result[i] = union_pattern_value(p1[i], p2[i]);
+    }
     return result;
 }
 
