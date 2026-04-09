@@ -369,15 +369,21 @@ void Proba::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
     auto ft_entry = ft.find(region_num);
     if (!ft_entry && !agt_entry && (!this->jt.in_jail(region_num)||!use_jail_table)) {
         ft.insert(region_num, region_offset, pc);
+        if (is_debug) {
+            std::cout << "Access: FT detects first offset for region: 0x" << std::hex << region_num  << ", offset: " << std::dec << region_offset << std::endl;
+        }
     } else if (ft_entry && ft_entry->data.trigger_offset != region_offset) { // SECOND OFFSET
         offset2 = region_offset;
         region_offset = ft_entry->data.trigger_offset;
         ft.erase(region_num);
+        if (is_debug) {
+            std::cout << "Access: FT detects second offset for region: 0x" << std::hex << region_num  << ", offset: " << std::dec << region_offset << std::endl;
+        }
     }
 
     if (agt_entry) {
         if (is_debug) {
-            std::cout << "Matching AGT entry, appending offset" <<std::endl;
+            std::cout << "Access: Matching AGT entry, appending offset" <<std::endl;
             std::cout << "pc: 0x" <<std::hex << pc << ", addr: 0x" << block_num << ", region: 0x" << region_num << ", offset: " << std::dec << region_offset << std::endl;
         }
     }
@@ -385,7 +391,7 @@ void Proba::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
     if(!agt_entry || offset2 != proba::NUM_BLOCKS) {
         if(offset2 != proba::NUM_BLOCKS || (!this->jt.in_jail(region_num)||!use_jail_table)) {
             if (is_debug) {
-                std::cout << "Trigger access" <<std::endl;
+                std::cout << "Access: Trigger access" <<std::endl;
                 std::cout << "pc: 0x" <<std::hex << pc << ", addr: 0x" << block_num << ", region: 0x" << region_num << ", offset: " << std::dec << region_offset << std::endl;
             }
 
@@ -439,10 +445,10 @@ void Proba::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
                 bool sample = false;
 
                 if(num_valid_entries<=(AGT_WAY/2)) {
-                    if (is_debug) std::cout << "AGT occupancy smaller than 50 percent, no sampling" <<std::endl;
+                    if (is_debug) std::cout << "Access: AGT occupancy smaller than 50 percent, no sampling" <<std::endl;
                     sample=true;
                 } else {
-                    if (is_debug) std::cout << "AGT occupancy greater than 50 percent, sampling" <<std::endl;
+                    if (is_debug) std::cout << "Access: AGT occupancy greater than 50 percent, sampling" <<std::endl;
                     if(random_gen() < sample_rate) {
                         sample=true;
                         if (is_debug) std::cout << "Region is sampled" <<std::endl;
@@ -455,7 +461,7 @@ void Proba::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
                     auto agt_victim = agt.insert(region_num, region_offset, pc,block_num);
 
                     if (is_debug) {
-                        std::cout << "AGT inserting region 0x" << std::hex << region_num << "pc: 0x" << pc << std::dec << ", offset: " << region_offset << std::endl;
+                        std::cout << "Access: AGT inserting region 0x" << std::hex << region_num << "pc: 0x" << pc << std::dec << ", offset: " << region_offset << std::endl;
                         std::cout << agt.log() << std::endl;
                     }
 
@@ -464,7 +470,7 @@ void Proba::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
                     }
                 } else {
                     jt.mark(region_num);
-                    if (is_debug) std::cout << "Mark region 0x" << std::hex << region_num << std::dec << " in Jail Table" << std::endl;
+                    if (is_debug) std::cout << "Access: Mark region 0x" << std::hex << region_num << std::dec << " in Jail Table" << std::endl;
                 }
             }
         }
@@ -473,8 +479,6 @@ void Proba::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
 }
 
 void Proba::eviction(uint64_t block_num, CACHE* cache) {
-    if (is_debug) std::cout << "Eviction" <<std::endl;
-
     uint64_t region_num = block_num >> (LOG2_REGION_SIZE - LOG2_BLOCK_SIZE);
     ft.erase(region_num);
     auto entry = agt.erase(region_num);
@@ -482,13 +486,13 @@ void Proba::eviction(uint64_t block_num, CACHE* cache) {
     if (entry) {
         update_in_pht(*entry, true, cache);
         if (is_debug) {
-            std::cout << "In AGT, AGT erasing region: 0x" << std::hex << region_num << std::dec <<std::endl;
+            std::cout << "Eviction: in AGT, AGT erasing region: 0x" << std::hex << region_num << std::dec <<std::endl;
             //std::cout << "PHT updating pc: 0x" << std::hex << entry->data.pc << std::dec << "\n" << pht.log() << std::endl;
         }
     } else {
         jt.unmark(region_num);
         if (is_debug) {
-            std::cout << "Not in AGT, unmark region 0x" << std::hex << region_num << std::dec << " in Jail Table" << std::endl;
+            std::cout << "Eviction: not in AGT, unmark region 0x" << std::hex << region_num << std::dec << " in Jail Table" << std::endl;
         }
     }
 }
@@ -513,10 +517,10 @@ void Proba::log() {
 
 void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is_end_of_generation, CACHE* cache) {
     if (is_end_of_generation) {
-        if (is_debug) std::cout << "AGT end-of-generation eviction" << std::endl;
+        if (is_debug) std::cout << "Update: AGT end-of-generation eviction" << std::endl;
     } else {
         jt.mark(agt_entry.key);
-        if (is_debug) std::cout << "AGT capacity eviction, mark region 0x" << std::hex << agt_entry.key << std::dec << std::endl;
+        if (is_debug) std::cout << "Update: AGT capacity eviction, mark region 0x" << std::hex << agt_entry.key << std::dec << std::endl;
     }
 
     if (use_only_training_on_eog && !is_end_of_generation)
@@ -596,7 +600,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
         auto pht_entry = table.find(agt_entry.data.pc, agt_entry.data.trigger_offset, agt_entry.data.second_offset, agt_entry.data.addr);
 
         if (pht_entry) {
-            if (is_debug) std::cout << "PHT entry found" << std::endl;
+            if (is_debug) std::cout << "Update: PHT entry found" << std::endl;
 
             std::vector<int> prediction = get_prediction_for_table(table, pht_entry->data.pattern);
 
@@ -619,6 +623,12 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
                 local_accuracy =
                     (100ULL * same_count_observation_prediction) / pop_count_prediction;
             }
+
+            if (is_debug) {
+                std::cout << "same_count_observation_prediction: " << same_count_observation_prediction << std::endl;
+                std::cout << "pop_count_prediction:              " << pop_count_prediction << std::endl;
+                std::cout << "Local Accuracy:                    " << local_accuracy << std::endl;
+            }
         }
 
         accuracy[tidx] = local_accuracy;
@@ -640,6 +650,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
         std::vector<int> prediction = get_prediction_for_table(table, pht_entry->data.pattern);
 
         if (first_iteration) {
+            if (is_debug) std::cout << "Marginal accuracy first iteration"<< std::endl;
             first_iteration = false;
 
             uint64_t local_accuracy = accuracy[idx];
@@ -665,10 +676,8 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
             corrected_accuracy = std::clamp<int64_t>(corrected_accuracy, 0, 100);
 
             if (is_debug) {
+                std::cout << "Table behavior:            " << behavior_to_string(table.behavior) << std::endl;
                 std::cout << "Local Accuracy:            " << local_accuracy << std::endl;
-                std::cout << "Actual Global Accuracy:    " << ewma_global_accuracy << std::endl;
-                std::cout << "Estimated Global Accuracy: " << estimated_global_accuracy << std::endl;
-                std::cout << "Corrected Accuracy:        " << corrected_accuracy << std::endl;
             }
 
             uint64_t pop_count_prediction = count_bits_set(prediction);
@@ -688,15 +697,30 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
             }
 
             accumulated_marginal_prediction = prediction;
+            if (is_debug) std::cout << "accumulated_marginal_prediction: " << custom_util::pattern_to_string(accumulated_marginal_prediction) << std::endl;
         } else {
+            if (is_debug) {
+                std::cout << "Marginal accuracy iteration"<< std::endl;
+                std::cout << "Table behavior:            " << behavior_to_string(table.behavior) << std::endl;
+            }
+
             std::vector<int> marginal_prediction = prediction;
             std::vector<int> marginal_obs = observation;
 
+            if (is_debug) {
+                std::cout << "prediction:                      " << custom_util::pattern_to_string(marginal_prediction) << std::endl;
+                std::cout << "obs:                             " << custom_util::pattern_to_string(marginal_obs) << std::endl;
+            }
             for (size_t i = 0; i < accumulated_marginal_prediction.size(); ++i) {
                 if (accumulated_marginal_prediction[i] != 0) {
                     marginal_prediction[i] = 0;
                     marginal_obs[i] = 0;
                 }
+            }
+
+            if (is_debug) {
+                std::cout << "marginal_prediction:             " << custom_util::pattern_to_string(marginal_prediction) << std::endl;
+                std::cout << "marginal_obs:                    " << custom_util::pattern_to_string(marginal_obs) << std::endl;
             }
 
             uint64_t pop_count_prediction = count_bits_set(marginal_prediction);
@@ -706,6 +730,10 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
             if (pop_count_prediction > 0) {
                 local_maccuracy =
                     (100ULL * same_count_observation_prediction) / pop_count_prediction;
+            }
+
+            if (is_debug) {
+                std::cout << "Local Marginal Accuracy:            " << local_maccuracy << std::endl;
             }
 
             int64_t local_acc_thr = proba_acc_thr;
@@ -741,8 +769,11 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
                 }
             }
             accumulated_marginal_prediction = union_patterns(accumulated_marginal_prediction,prediction);
+            if (is_debug) std::cout << "accumulated_marginal_prediction: " << custom_util::pattern_to_string(accumulated_marginal_prediction) << std::endl;
         }
     }
+
+    if (is_debug) std::cout << "Update PHT using marginal accuracy"<< std::endl;
 
     for (size_t idx : active_indices) {
         auto& table = phts[idx];
@@ -761,8 +792,12 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
             uint64_t delete_probability = probs.second;
 
             if (is_debug) {
-                std::cout << "insert probability: " << insert_probability << std::endl;
-                std::cout << "delete probability: " << delete_probability << std::endl;
+                std::cout << "Table behavior:     " << behavior_to_string(table.behavior) << std::endl;
+                std::cout << "Mode:               " << mode.get_cnt() << std::endl;
+                std::cout << "Insert probability: " << insert_probability << std::endl;
+                std::cout << "Delete probability: " << delete_probability << std::endl;
+                std::cout << "Prediction:         " << custom_util::pattern_to_string(prediction) << std::endl;
+                std::cout << "Observation:        " << custom_util::pattern_to_string(observation) << std::endl;
             }
 
             for (int i = 0; i < NUM_BLOCKS; ++i) {
@@ -780,7 +815,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
             }
 
             if (is_debug) {
-                std::cout << "Updated Prediction: " << custom_util::pattern_to_string(prediction) << std::endl;
+                std::cout << "Updated prediction: " << custom_util::pattern_to_string(prediction) << std::endl;
             }
 
             std::vector<int> stored_prediction = prediction;
@@ -791,7 +826,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
 
             if (count_bits_set(initial_pattern) > 0) {
                 if (is_debug) {
-                    std::cout << "PHT entry not found, insert new PHT entry" << std::endl;
+                    std::cout << "Update: PHT entry not found, insert new PHT entry" << std::endl;
                 }
 
                 table.insert(agt_entry.data.pc, agt_entry.data.trigger_offset, agt_entry.data.second_offset, agt_entry.data.addr, initial_pattern);
