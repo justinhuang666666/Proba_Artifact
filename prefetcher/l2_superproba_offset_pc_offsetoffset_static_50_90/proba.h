@@ -236,7 +236,7 @@ private:
 
     int sample_rate = 1;
     int proba_acc_thr1 = 50;
-    int proba_acc_thr2 = 70;
+    int proba_acc_thr2 = 90;
 
     int ewma_window_size = 1000;
     int ewma_alpha_num = 1;
