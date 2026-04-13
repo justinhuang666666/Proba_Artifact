@@ -484,16 +484,15 @@ void Proba::eviction(uint64_t block_num, CACHE* cache) {
     auto entry = agt.erase(region_num);
 
     if (entry) {
-        update_in_pht(*entry, true, cache);
         if (is_debug) {
             std::cout << "Eviction: in AGT, AGT erasing region: 0x" << std::hex << region_num << std::dec <<std::endl;
-            //std::cout << "PHT updating pc: 0x" << std::hex << entry->data.pc << std::dec << "\n" << pht.log() << std::endl;
         }
+        update_in_pht(*entry, true, cache);
     } else {
-        jt.unmark(region_num);
         if (is_debug) {
             std::cout << "Eviction: not in AGT, unmark region 0x" << std::hex << region_num << std::dec << " in Jail Table" << std::endl;
         }
+        jt.unmark(region_num);
     }
 }
 
@@ -826,7 +825,9 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
 
             if (count_bits_set(initial_pattern) > 0) {
                 if (is_debug) {
+                    std::cout << "Table behavior:      " << behavior_to_string(table.behavior) << std::endl;
                     std::cout << "Update: PHT entry not found, insert new PHT entry" << std::endl;
+                    std::cout << "Updated prediction: " << custom_util::pattern_to_string(initial_prediction) << std::endl;
                 }
 
                 table.insert(agt_entry.data.pc, agt_entry.data.trigger_offset, agt_entry.data.second_offset, agt_entry.data.addr, initial_pattern);
