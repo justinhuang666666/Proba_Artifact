@@ -585,7 +585,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
     std::vector<int> accumulated_prediction;
     std::vector<size_t> active_indices;
 
-    if(debug) std::cout << "Observation:        " << custom_util::pattern_to_string(agt_entry.data.pattern) << std::endl;
+    if(is_debug) std::cout << "Observation:        " << custom_util::pattern_to_string(agt_entry.data.pattern) << std::endl;
 
     for (size_t tidx = 0; tidx < phts.size(); ++tidx) {
         auto& table = phts[tidx];
