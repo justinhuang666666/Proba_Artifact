@@ -51,6 +51,11 @@ public:
         Super::rp_promote(key);
     }
 
+    Entry* erase_region(uint64_t region_number) {
+        uint64_t key = build_key(region_number);
+        return Super::erase(key);
+    }
+
     std::string log() {
         std::vector<std::string> headers({"Region", "PC", "Offset"});
         return Super::log(headers);
@@ -107,6 +112,20 @@ public:
         Entry old_entry = Super::insert(key, {entry.data.pc, entry.data.offset, pattern});
         Super::rp_insert(key);
         return old_entry;
+    }
+
+    bool has_offset(uint64_t region_number, int offset) {
+        uint64_t key = build_key(region_number);
+        Entry* entry = Super::find(key);
+        if (!entry)
+            return false;
+
+        return entry->data.pattern[offset];
+    }
+
+    Entry* erase_region(uint64_t region_number) {
+        uint64_t key = build_key(region_number);
+        return Super::erase(key);
     }
 
     std::string log() {
@@ -342,12 +361,16 @@ public:
     }
 
     void eviction(uint64_t block_number) {
-        /* end of generation */
         uint64_t region_number = block_number / this->pattern_len;
-        this->filter_table.erase(region_number);
-        AccumulationTable::Entry* entry = this->accumulation_table.erase(region_number);
+        int region_offset = block_number % this->pattern_len;
+
+        if (!this->accumulation_table.has_offset(region_number, region_offset))
+            return;
+
+        this->filter_table.erase_region(region_number);
+
+        AccumulationTable::Entry* entry = this->accumulation_table.erase_region(region_number);
         if (entry) {
-            /* move from accumulation table to pattern history table */
             this->insert_in_pht(*entry);
         }
     }
