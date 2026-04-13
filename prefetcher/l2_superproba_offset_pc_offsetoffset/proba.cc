@@ -827,7 +827,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
                 if (is_debug) {
                     std::cout << "Table behavior:      " << behavior_to_string(table.behavior) << std::endl;
                     std::cout << "Update: PHT entry not found, insert new PHT entry" << std::endl;
-                    std::cout << "Updated prediction: " << custom_util::pattern_to_string(initial_prediction) << std::endl;
+                    std::cout << "Updated prediction: " << custom_util::pattern_to_string(initial_pattern) << std::endl;
                 }
 
                 table.insert(agt_entry.data.pc, agt_entry.data.trigger_offset, agt_entry.data.second_offset, agt_entry.data.addr, initial_pattern);
