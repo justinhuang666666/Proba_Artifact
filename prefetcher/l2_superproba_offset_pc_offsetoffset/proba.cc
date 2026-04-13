@@ -480,12 +480,13 @@ void Proba::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
 
 void Proba::eviction(uint64_t block_num, CACHE* cache) {
     uint64_t region_num = block_num >> (LOG2_REGION_SIZE - LOG2_BLOCK_SIZE);
+    uint64_t region_offset = __region_offset(block_num);
     ft.erase(region_num);
     auto entry = agt.erase(region_num);
 
     if (entry) {
         if (is_debug) {
-            std::cout << "Eviction: in AGT, AGT erasing region: 0x" << std::hex << region_num << std::dec <<std::endl;
+            std::cout << "Eviction: in AGT, AGT erasing region: 0x" << std::hex << region_num << ", offset: "<< std::dec << region_offset << std::endl;
         }
         update_in_pht(*entry, true, cache);
     } else {
