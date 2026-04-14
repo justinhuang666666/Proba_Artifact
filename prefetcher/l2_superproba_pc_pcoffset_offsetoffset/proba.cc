@@ -330,11 +330,11 @@ uint64_t PrefetchBuffer::build_key(uint64_t region_num) {
 Proba::Proba(int agt_size, int agt_ways, int ft_size, int ft_ways, int pht_size, int pht_ways, int width, int jt_size, int pb_size, int pb_ways, bool is_debug, int cpu) :
     agt(agt_size, agt_ways),
       phts(std::vector<PatternHistoryTable>{
-          PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::PC),
-          PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::PCOffset),
         //   PatternHistoryTable(pht_size*pht_size, pht_ways, width, PatternHistoryTable::Behavior::PCAddr),
-        //   PatternHistoryTable(NUM_BLOCKS, 1, width, PatternHistoryTable::Behavior::Offset),
-          PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::OffsetOffset)
+          PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::OffsetOffset),
+          PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::PCOffset),
+        //   PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::PC),
+          PatternHistoryTable(NUM_BLOCKS, 1, width, PatternHistoryTable::Behavior::Offset)
       }),
 jt(jt_size),ft(ft_size, ft_ways), pb(pb_size, NUM_BLOCKS, 0, pb_ways), is_debug(is_debug), cpu(cpu) {
 }
@@ -480,20 +480,20 @@ void Proba::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
 
 void Proba::eviction(uint64_t block_num, CACHE* cache) {
     uint64_t region_num = block_num >> (LOG2_REGION_SIZE - LOG2_BLOCK_SIZE);
+    uint64_t region_offset = __region_offset(block_num);
     ft.erase(region_num);
     auto entry = agt.erase(region_num);
 
     if (entry) {
-        update_in_pht(*entry, true, cache);
         if (is_debug) {
-            std::cout << "Eviction: in AGT, AGT erasing region: 0x" << std::hex << region_num << std::dec <<std::endl;
-            //std::cout << "PHT updating pc: 0x" << std::hex << entry->data.pc << std::dec << "\n" << pht.log() << std::endl;
+            std::cout << "Eviction: in AGT, AGT erasing region: 0x" << std::hex << region_num << ", offset: "<< std::dec << region_offset << std::endl;
         }
+        update_in_pht(*entry, true, cache);
     } else {
-        jt.unmark(region_num);
         if (is_debug) {
             std::cout << "Eviction: not in AGT, unmark region 0x" << std::hex << region_num << std::dec << " in Jail Table" << std::endl;
         }
+        jt.unmark(region_num);
     }
 }
 
@@ -586,6 +586,8 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
     std::vector<int> accumulated_prediction;
     std::vector<size_t> active_indices;
 
+    if(is_debug) std::cout << "Observation:        " << custom_util::pattern_to_string(agt_entry.data.pattern) << std::endl;
+
     for (size_t tidx = 0; tidx < phts.size(); ++tidx) {
         auto& table = phts[tidx];
 
@@ -605,9 +607,9 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
             std::vector<int> prediction = get_prediction_for_table(table, pht_entry->data.pattern);
 
             if (accumulated_prediction.empty()) {
-                accumulated_prediction = prediction;
+                accumulated_prediction = (table.behavior == PatternHistoryTable::Behavior::PC) ? rotate(prediction, agt_entry.data.trigger_offset) : prediction;
             } else {
-                accumulated_prediction = union_patterns(accumulated_prediction, prediction);
+                accumulated_prediction = union_patterns(accumulated_prediction, (table.behavior == PatternHistoryTable::Behavior::PC) ? rotate(prediction, agt_entry.data.trigger_offset) : prediction);
             }
 
             if (is_debug) {
@@ -696,7 +698,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
                 }
             }
 
-            accumulated_marginal_prediction = prediction;
+            accumulated_marginal_prediction = (table.behavior == PatternHistoryTable::Behavior::PC) ? rotate(prediction, agt_entry.data.trigger_offset) : prediction;
             if (is_debug) std::cout << "accumulated_marginal_prediction: " << custom_util::pattern_to_string(accumulated_marginal_prediction) << std::endl;
         } else {
             if (is_debug) {
@@ -711,8 +713,9 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
                 std::cout << "prediction:                      " << custom_util::pattern_to_string(marginal_prediction) << std::endl;
                 std::cout << "obs:                             " << custom_util::pattern_to_string(marginal_obs) << std::endl;
             }
-            for (size_t i = 0; i < accumulated_marginal_prediction.size(); ++i) {
-                if (accumulated_marginal_prediction[i] != 0) {
+            auto aligned_accumulated_marginal_prediction = (table.behavior == PatternHistoryTable::Behavior::PC) ? rotate(accumulated_marginal_prediction, -agt_entry.data.trigger_offset) : accumulated_marginal_prediction;
+            for (size_t i = 0; i < aligned_accumulated_marginal_prediction.size(); ++i) {
+                if (aligned_accumulated_marginal_prediction[i] != 0) {
                     marginal_prediction[i] = 0;
                     marginal_obs[i] = 0;
                 }
@@ -768,7 +771,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
                     }
                 }
             }
-            accumulated_marginal_prediction = union_patterns(accumulated_marginal_prediction,prediction);
+            accumulated_marginal_prediction = union_patterns(accumulated_marginal_prediction,(table.behavior == PatternHistoryTable::Behavior::PC) ? rotate(prediction, agt_entry.data.trigger_offset) : prediction);
             if (is_debug) std::cout << "accumulated_marginal_prediction: " << custom_util::pattern_to_string(accumulated_marginal_prediction) << std::endl;
         }
     }
@@ -826,7 +829,9 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
 
             if (count_bits_set(initial_pattern) > 0) {
                 if (is_debug) {
+                    std::cout << "Table behavior:      " << behavior_to_string(table.behavior) << std::endl;
                     std::cout << "Update: PHT entry not found, insert new PHT entry" << std::endl;
+                    std::cout << "Updated prediction: " << custom_util::pattern_to_string(initial_pattern) << std::endl;
                 }
 
                 table.insert(agt_entry.data.pc, agt_entry.data.trigger_offset, agt_entry.data.second_offset, agt_entry.data.addr, initial_pattern);
