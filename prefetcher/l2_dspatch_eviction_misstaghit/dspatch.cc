@@ -488,7 +488,7 @@ uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cac
 
     if ((cache_hit && useful_prefetch) || !cache_hit) {
         uint64_t block_number = addr >> LOG2_BLOCK_SIZE;
-
+        vector<uint64_t> pref_addr; // not used
         prefetchers[cpu].invoke_prefetcher(ip, addr, cache_hit, type, pref_addr);
         prefetchers[cpu].prefetch(this, block_number);
     }
