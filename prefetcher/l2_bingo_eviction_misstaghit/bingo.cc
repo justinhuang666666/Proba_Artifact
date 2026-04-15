@@ -4,7 +4,6 @@
 #include "custom_util.h"
 #include "bingo.h"
 
-
 /* Bingo settings */
 namespace {
 
@@ -21,34 +20,24 @@ uint64_t roi_overpredict_cnt[NUM_CPUS][2] = {0};
 void CACHE::prefetcher_initialize() {
     std::cout << NAME << " Bingo with PrefetchBuffer prefetcher" << std::endl;
 
-    prefetchers = std::vector<bingo_pb::Bingo>(NUM_CPUS, 
-        bingo_pb::Bingo(
-        bingo_pb::REGION_SIZE >> LOG2_BLOCK_SIZE,
-        bingo_pb::MIN_ADDR_WIDTH,
-        bingo_pb::MAX_ADDR_WIDTH,
-        bingo_pb::KEY_WIDTH,
-        bingo_pb::AT_SIZE,
-        bingo_pb::AT_WAY,
-        bingo_pb::PHT_SIZE,
-        bingo_pb::PHT_WAY,
-        bingo_pb::PB_SIZE,
-        bingo_pb::PB_WAY,
-        0,
-        this
-        )
-    );
+    prefetchers = std::vector<bingo_pb::Bingo>(NUM_CPUS, bingo_pb::Bingo(bingo_pb::REGION_SIZE >> LOG2_BLOCK_SIZE, bingo_pb::MIN_ADDR_WIDTH, bingo_pb::MAX_ADDR_WIDTH,
+                                                                         bingo_pb::PC_WIDTH, bingo_pb::FT_SIZE, bingo_pb::FT_WAY, bingo_pb::AT_SIZE, bingo_pb::AT_WAY, bingo_pb::PHT_SIZE, bingo_pb::PHT_WAY, bingo_pb::PB_SIZE, bingo_pb::PB_WAY, 0));
 }
 
 uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, bool useful_prefetch, uint8_t type, uint32_t metadata_in) {
     if (type != LOAD && type != PREFETCH)
         return metadata_in;
 
-    uint64_t block_number = addr >> LOG2_BLOCK_SIZE;
+    if ((cache_hit && useful_prefetch) || !cache_hit) {
 
-    /* call prefetcher and send prefetches */
-    prefetchers[cpu].access(block_number, ip);
+        uint64_t block_number = addr >> LOG2_BLOCK_SIZE;
 
-    prefetchers[cpu].prefetch(this, block_number);
+        /* call prefetcher and send prefetches */
+        prefetchers[cpu].access(block_number, ip);
+
+        prefetchers[cpu].prefetch(this, block_number);
+
+    }
 
     return metadata_in;
 }

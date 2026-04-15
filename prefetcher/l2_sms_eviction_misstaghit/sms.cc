@@ -28,12 +28,13 @@ uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cac
     if (type != LOAD && type != PREFETCH)
         return metadata_in;
 
-    uint64_t block_number = addr >> LOG2_BLOCK_SIZE;
+    if ((cache_hit && useful_prefetch) || !cache_hit) {
+        uint64_t block_number = addr >> LOG2_BLOCK_SIZE;
 
-    prefetchers[cpu].access(block_number, ip);
+        prefetchers[cpu].access(block_number, ip);
 
-    prefetchers[cpu].prefetch(this, block_number);
-
+        prefetchers[cpu].prefetch(this, block_number);
+    }
     return metadata_in;
 }
 

@@ -155,7 +155,7 @@ void CACHE::prefetcher_initialize() {
     }
 }
 
-uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint32_t metadata_in) {
+uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, bool useful_prefetch, uint8_t type, uint32_t metadata_in) {
     uint64_t curr_page = ipcp_l1::hash_page(addr >> LOG2_PAGE_SIZE); //current page
     uint64_t line_addr = addr >> LOG2_BLOCK_SIZE;                    //cache line address
     uint64_t line_offset = (addr >> LOG2_BLOCK_SIZE) & 0x3F;         //cache line offset

@@ -151,6 +151,7 @@ bool CACHE::try_hit(const PACKET& handle_pkt) {
     auto [set_begin, set_end] = get_set_span(handle_pkt.address);
     auto way = std::find_if(set_begin, set_end, eq_addr<BLOCK>(handle_pkt.address, OFFSET_BITS));
     const auto hit = (way != set_end);
+    const auto useful_prefetch = (hit && way->prefetch && !handle_pkt.prefetch_from_this);
 
     if constexpr (champsim::debug_print) {
         std::cout << "[" << NAME << "] " << __func__;
@@ -167,7 +168,7 @@ bool CACHE::try_hit(const PACKET& handle_pkt) {
     auto metadata_thru = handle_pkt.pf_metadata;
     if (should_activate_prefetcher(handle_pkt)) {
         uint64_t pf_base_addr = (virtual_prefetch ? handle_pkt.v_address : handle_pkt.address) & ~champsim::bitmask(match_offset_bits ? 0 : OFFSET_BITS);
-        metadata_thru = impl_prefetcher_cache_operate(pf_base_addr, handle_pkt.ip, hit, handle_pkt.type, metadata_thru);
+        metadata_thru = impl_prefetcher_cache_operate(pf_base_addr, handle_pkt.ip, hit, useful_prefetch, handle_pkt.type, metadata_thru);
     }
 
     if (hit) {
@@ -183,6 +184,7 @@ bool CACHE::try_hit(const PACKET& handle_pkt) {
             if (!warmup)
                 num_useful_gaze[way->pf_metadata & 3]++;
         }
+
         // update prefetch stats and reset prefetch bit
         if (way->prefetch && !handle_pkt.prefetch_from_this) {
             ++sim_stats.pf_useful;
@@ -191,6 +193,7 @@ bool CACHE::try_hit(const PACKET& handle_pkt) {
             if (!warmup)
                 num_useful_gaze[way->pf_metadata & 3]++;
         }
+        
         if (handle_pkt.type == PREFETCH && way->from_prefetch) {
             if (way->dest_level == 2 && __pf_dest(handle_pkt.pf_metadata) == 1) {
                 ++sim_stats.l2_pf_to_l1;
@@ -205,7 +208,7 @@ bool CACHE::try_hit(const PACKET& handle_pkt) {
         for (auto ret : copy.to_return)
             ret->return_data(copy);
 
-        way->dirty = (handle_pkt.type == WRITE);
+        way->dirty |= (handle_pkt.type == WRITE);
     }
 
     return hit;

@@ -249,26 +249,29 @@ void CACHE::prefetcher_initialize() {
 }
 
 uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, bool useful_prefetch, uint8_t type, uint32_t metadata_in) {
-    if (DEBUG_LEVEL >= 2) {
-        std::cerr << "CACHE::l1d_prefetcher_operate(addr=0x" << std::hex << addr << ", ip=0x" << ip << ", cache_hit=" << std::dec
-                  << (int)cache_hit << ", type=" << (int)type << ")" << std::dec << std::endl;
-        std::cerr << "[CACHE::l1d_prefetcher_operate] CACHE{core=" << this->cpu << ", NAME=" << this->NAME << "}" << std::dec
-                  << std::endl;
-    }
-
     if (type != LOAD && type != PREFETCH)
         return metadata_in;
 
-    uint64_t block_number = addr >> pmp::BOTTOM_BITS;
+    if ((cache_hit && useful_prefetch) || !cache_hit) {
+        if (DEBUG_LEVEL >= 2) {
+            std::cerr << "CACHE::l1d_prefetcher_operate(addr=0x" << std::hex << addr << ", ip=0x" << ip << ", cache_hit=" << std::dec
+                    << (int)cache_hit << ", type=" << (int)type << ")" << std::dec << std::endl;
+            std::cerr << "[CACHE::l1d_prefetcher_operate] CACHE{core=" << this->cpu << ", NAME=" << this->NAME << "}" << std::dec
+                    << std::endl;
+        }
+        
+        uint64_t block_number = addr >> pmp::BOTTOM_BITS;
 
-    prefetchers[cpu].access(block_number, ip);
+        prefetchers[cpu].access(block_number, ip);
 
-    prefetchers[cpu].prefetch(this, block_number);
+        prefetchers[cpu].prefetch(this, block_number);
 
-    if (DEBUG_LEVEL >= 3) {
-        prefetchers[cpu].log();
-        std::cerr << "=======================================" << std::dec << std::endl;
+        if (DEBUG_LEVEL >= 3) {
+            prefetchers[cpu].log();
+            std::cerr << "=======================================" << std::dec << std::endl;
+        }
     }
+    
     return metadata_in;
 }
 

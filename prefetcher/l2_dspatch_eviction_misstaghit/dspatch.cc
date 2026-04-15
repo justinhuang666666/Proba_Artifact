@@ -486,17 +486,12 @@ uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cac
     if (type != LOAD && type != PREFETCH)
         return metadata_in;
 
-    uint64_t block_number = addr >> LOG2_BLOCK_SIZE;
-    vector<uint64_t> pref_addr; // not used
-    prefetchers[cpu].invoke_prefetcher(ip, addr, cache_hit, type, pref_addr);
-    prefetchers[cpu].prefetch(this, block_number);
+    if ((cache_hit && useful_prefetch) || !cache_hit) {
+        uint64_t block_number = addr >> LOG2_BLOCK_SIZE;
 
-    // if (!pref_addr.empty()) {
-    //     for (uint32_t addr_index = 0; addr_index < pref_addr.size(); ++addr_index) {
-    //         prefetch_line(pref_addr[addr_index], true, 0);
-    //     }
-    // }
-    // pref_addr.clear();
+        prefetchers[cpu].invoke_prefetcher(ip, addr, cache_hit, type, pref_addr);
+        prefetchers[cpu].prefetch(this, block_number);
+    }
 
     return metadata_in;
 }

@@ -23,7 +23,7 @@ also size the IT and GHB so that they are 256 entries each. For more detail on t
 prefetcher implementation, please read the original GHB paper [10]. Doing so will be important for
 you to implement Task 1 correctly
 */
-uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint32_t metadata_in) {
+uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, bool useful_prefetch, uint8_t type, uint32_t metadata_in) {
     uint64_t cl_addr = addr >> LOG2_BLOCK_SIZE;
     int debug = 1;
 

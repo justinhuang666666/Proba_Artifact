@@ -673,7 +673,7 @@ void CACHE::prefetcher_initialize() {
     prefetchers = std::vector<proba::Proba>(NUM_CPUS, proba::Proba(proba::AGT_SIZE, proba::AGT_WAY, proba::OPT_SIZE, proba::OPT_WAY, proba::OFFSET_WIDTH, proba::PPT_SIZE, proba::PPT_WAY, proba::PC_WIDTH, proba::JT_SIZE, proba::PB_SIZE, proba::PB_WAY, proba::DEBUG, cpu));
 }
 
-uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint32_t metadata_in) {
+uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, bool useful_prefetch, uint8_t type, uint32_t metadata_in) {
     if (type != LOAD && type != PREFETCH)
         return metadata_in;
 

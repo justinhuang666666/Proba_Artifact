@@ -333,7 +333,7 @@ Proba::Proba(int agt_size, int agt_ways, int ft_size, int ft_ways, int pht_size,
         //   PatternHistoryTable(pht_size*pht_size, pht_ways, width, PatternHistoryTable::Behavior::PCAddr),
           PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::OffsetOffset),
           PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::PCOffset),
-          PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::PC),
+        //   PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::PC),
           PatternHistoryTable(NUM_BLOCKS, 1, width, PatternHistoryTable::Behavior::Offset)
       }),
 jt(jt_size),ft(ft_size, ft_ways), pb(pb_size, NUM_BLOCKS, 0, pb_ways), is_debug(is_debug), cpu(cpu) {
@@ -920,17 +920,19 @@ uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cac
     if (type != LOAD && type != PREFETCH)
         return metadata_in;
 
-    uint64_t line_addr = (addr >> LOG2_BLOCK_SIZE);
-    uint64_t region_num = (addr >> LOG2_PAGE_SIZE);
-    int offset = line_addr % proba::NUM_BLOCKS;
+    if ((cache_hit && useful_prefetch) || !cache_hit) {
+        uint64_t line_addr = (addr >> LOG2_BLOCK_SIZE);
+        uint64_t region_num = (addr >> LOG2_PAGE_SIZE);
+        int offset = line_addr % proba::NUM_BLOCKS;
 
-    prefetchers[cpu].set_warmup(warmup);
+        prefetchers[cpu].set_warmup(warmup);
 
-    uint64_t block_num = addr >> LOG2_BLOCK_SIZE;
+        uint64_t block_num = addr >> LOG2_BLOCK_SIZE;
 
-    prefetchers[cpu].access(block_num, ip, this);
-    prefetchers[cpu].prefetch(this, block_num);
-
+        prefetchers[cpu].access(block_num, ip, this);
+        prefetchers[cpu].prefetch(this, block_num);
+    }
+    
     return metadata_in;
 }
 

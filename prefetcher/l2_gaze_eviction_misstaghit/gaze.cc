@@ -468,19 +468,22 @@ void CACHE::prefetcher_initialize() {
 }
 
 uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, bool useful_prefetch, uint8_t type, uint32_t metadata_in) {
-    uint64_t line_addr = (addr >> LOG2_BLOCK_SIZE); 
-    uint64_t region_num = (addr >> LOG2_PAGE_SIZE);
-    int offset = line_addr % gaze::NUM_BLOCKS;
-
-    prefetchers[cpu].set_warmup(warmup);
-
     if (type != LOAD && type != PREFETCH)
         return metadata_in;
-    uint64_t block_num = addr >> LOG2_BLOCK_SIZE;
+    
+    if ((cache_hit && useful_prefetch) || !cache_hit) {
+        uint64_t line_addr = (addr >> LOG2_BLOCK_SIZE); 
+        uint64_t region_num = (addr >> LOG2_PAGE_SIZE);
+        int offset = line_addr % gaze::NUM_BLOCKS;
 
-    prefetchers[cpu].access(block_num, ip, this);
-    prefetchers[cpu].prefetch(this, block_num);
+        prefetchers[cpu].set_warmup(warmup);
 
+        uint64_t block_num = addr >> LOG2_BLOCK_SIZE;
+
+        prefetchers[cpu].access(block_num, ip, this);
+        prefetchers[cpu].prefetch(this, block_num);
+    }
+    
     return metadata_in;
 }
 

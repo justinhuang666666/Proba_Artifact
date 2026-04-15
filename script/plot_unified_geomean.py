@@ -17,7 +17,7 @@ from _GAP_WEIGHTS import GAP_SHORTCODE_WEIGHTS
 LOG_DIR = os.path.join('results', 'json') 
 GRAPH_DIR = 'graphs'
 OUTPUT = "png"  # Use PNG for PowerPoint compatibility
-PLOT_NAME = 'proba_sms'
+PLOT_NAME = 'proba'
 
 PRINT_BENCH_STATS = False
 

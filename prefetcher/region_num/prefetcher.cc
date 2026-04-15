@@ -23,7 +23,7 @@ void CACHE::prefetcher_initialize() {
     prefetchers = std::vector<spb::Prefetcher>(NUM_CPUS, spb::Prefetcher(REGION_SIZE >> LOG2_BLOCK_SIZE, ADDR_WIDTH, PC_WIDTH, PHT_SIZE, FT_SIZE, FT_WAY, AT_SIZE, AT_WAY, PB_SIZE));
 }
 
-uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint32_t metadata_in) {
+uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, bool useful_prefetch, uint8_t type, uint32_t metadata_in) {
     /* call prefetcher and send prefetches */
     uint64_t block_number = addr >> LOG2_BLOCK_SIZE;
 

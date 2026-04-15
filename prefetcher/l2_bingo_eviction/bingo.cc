@@ -24,7 +24,7 @@ void CACHE::prefetcher_initialize() {
                                                                          bingo_pb::PC_WIDTH, bingo_pb::FT_SIZE, bingo_pb::FT_WAY, bingo_pb::AT_SIZE, bingo_pb::AT_WAY, bingo_pb::PHT_SIZE, bingo_pb::PHT_WAY, bingo_pb::PB_SIZE, bingo_pb::PB_WAY, 0));
 }
 
-uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint32_t metadata_in) {
+uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, bool useful_prefetch, uint8_t type, uint32_t metadata_in) {
     if (type != LOAD && type != PREFETCH)
         return metadata_in;
 
