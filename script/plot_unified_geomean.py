@@ -17,7 +17,7 @@ from _GAP_WEIGHTS import GAP_SHORTCODE_WEIGHTS
 LOG_DIR = os.path.join('results', 'json') 
 GRAPH_DIR = 'graphs'
 OUTPUT = "png"  # Use PNG for PowerPoint compatibility
-PLOT_NAME = 'proba'
+PLOT_NAME = 'sms'
 
 PRINT_BENCH_STATS = False
 
@@ -61,7 +61,7 @@ if BENCHMARK_TYPE != 'GAP':
 BASELINE = 'no'
 
 # ABLATION STUDY
-PREFETCHERS = ['l2_sms_eviction', 'l2_bingo_eviction', 'l2_proba_bingo_eog_jail_sampling_1', 'l2_dspatch_eviction', 'l2_proba_eog_jail_sampling_1', 'l2_proba_eog_jail_sampling_1_calibration', 'l2_pmp_eviction', 'l2_proba_pmp_eog_jail_sampling_1', 'l2_proba_pmp_offset_pc_offset_eog_jail_sampling_1', 'l2_gaze_eviction']
+PREFETCHERS = ['l2_sms_eviction', 'l2_bingo_eviction', 'l2_dspatch_eviction', 'l2_pmp_eviction', 'l2_gaze_eviction']
 
 if BASELINE not in PREFETCHERS:
     PREFETCHERS.append(BASELINE)
@@ -612,20 +612,52 @@ def create_plot(geomean_speedups, plot_prefetchers, metric_name, ylabel, filenam
     for prefetcher in plot_prefetchers:
         if prefetcher == 'l2_sms_eviction':
             display_prefetchers.append('L2 SMS')
+        elif prefetcher == 'l2_sms_eviction_misstaghit':
+            display_prefetchers.append('L2 SMS M/TH')
         elif prefetcher == 'l2_bingo_eviction':
             display_prefetchers.append('L2 Bingo')
+        elif prefetcher == 'l2_bingo_eviction_misstaghit':
+            display_prefetchers.append('L2 Bingo M/TH')
         elif prefetcher == 'l2_dspatch_eviction':
             display_prefetchers.append('L2 DSPatch')
+        elif prefetcher == 'l2_dspatch_eviction_misstaghit':
+            display_prefetchers.append('L2 DSPatch M/TH')
         elif prefetcher == 'l2_pmp_eviction':
             display_prefetchers.append('L2 PMP')
+        elif prefetcher == 'l2_pmp_eviction_misstaghit':
+            display_prefetchers.append('L2 PMP M/TH')
         elif prefetcher == 'l2_gaze_eviction':
             display_prefetchers.append('L2 Gaze')
+        elif prefetcher == 'l2_gaze_eviction_misstaghit':
+            display_prefetchers.append('L2 Gaze M/TH')
         elif prefetcher == 'l2_proba_eviction':
             display_prefetchers.append('L2 Proba')
         elif prefetcher == 'l2_proba_eog_jail_sampling':
             display_prefetchers.append('L2 Proba EOG Jail Sampling')
         elif prefetcher == 'l2_proba_eog_jail_sampling_calibration':
             display_prefetchers.append('L2 Proba EOG Jail Sampling Calibration')
+        elif prefetcher == 'l2_superproba':
+            display_prefetchers.append('L2 SuperProba')
+        elif prefetcher == 'l2_superproba':
+            display_prefetchers.append('L2 SuperProba All')
+        elif prefetcher == 'l2_superproba_offset_pc':
+            display_prefetchers.append('L2 SuperProba Off/PC')
+        elif prefetcher == 'l2_superproba_offset_pc_offsetoffset':
+            display_prefetchers.append('L2 SuperProba Off/PC/OffOff')
+        elif prefetcher == 'l2_superproba_offset_pcoffset_offsetoffset':
+            display_prefetchers.append('L2 SuperProba Off/PCOff/OffOff')
+        elif prefetcher == 'l2_superproba_pc_pcoffset_offsetoffset':
+            display_prefetchers.append('L2 SuperProba PC/PCOff/OffOff')
+        elif prefetcher == 'l2_superproba_misstaghit':
+            display_prefetchers.append('L2 SuperProba All M/TH')
+        elif prefetcher == 'l2_superproba_offset_pc_misstaghit':
+            display_prefetchers.append('L2 SuperProba Off/PC M/TH')
+        elif prefetcher == 'l2_superproba_offset_pc_offsetoffset_misstaghit':
+            display_prefetchers.append('L2 SuperProba Off/PC/OffOff M/TH')
+        elif prefetcher == 'l2_superproba_offset_pcoffset_offsetoffset_misstaghit':
+            display_prefetchers.append('L2 SuperProba Off/PCOff/OffOff M/TH')
+        elif prefetcher == 'l2_superproba_pc_pcoffset_offsetoffset_misstaghit':
+            display_prefetchers.append('L2 SuperProba PC/PCOff/OffOff M/TH')
         else:
             display_prefetchers.append(prefetcher)
     
@@ -920,11 +952,11 @@ def main():
     if PLOT_TRACE_IPC:
         create_plot(ipc_speedups, ipc_plot_prefetchers, 'ipc', 'IPC Speedup', 
                     f'{PLOT_NAME}_ipc_traces.{OUTPUT}', include_geomean=False, include_baseline=True, 
-                    ylim_bottom=0.9, legend_position='top', plot_traces=True, trace_labels=ipc_trace_labels)
+                    ylim_bottom=0.7, legend_position='top', plot_traces=True, trace_labels=ipc_trace_labels)
     else:
         create_plot(ipc_speedups, ipc_plot_prefetchers, 'ipc', 'IPC Speedup', 
                     f'{PLOT_NAME}_ipc.{OUTPUT}', include_geomean=INCLUDE_GEOMEAN, include_baseline=True, 
-                    ylim_bottom=0.9, only_geomean_bar=ONLY_GEOMEAN_BAR, legend_position='top')
+                    ylim_bottom=0.7, only_geomean_bar=ONLY_GEOMEAN_BAR, legend_position='top')
     
     print("Creating DRAM plot...")
     create_plot(dram_speedups, dram_plot_prefetchers, 'dram', 'Normalized DRAM Traffic', 
