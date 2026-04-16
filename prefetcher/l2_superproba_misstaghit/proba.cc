@@ -331,8 +331,8 @@ Proba::Proba(int agt_size, int agt_ways, int ft_size, int ft_ways, int pht_size,
     agt(agt_size, agt_ways),
       phts(std::vector<PatternHistoryTable>{
         //   PatternHistoryTable(pht_size*pht_size, pht_ways, width, PatternHistoryTable::Behavior::PCAddr),
-        //   PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::OffsetOffset),
-        //   PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::PCOffset),
+          PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::OffsetOffset),
+          PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::PCOffset),
           PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::PC),
           PatternHistoryTable(NUM_BLOCKS, 1, width, PatternHistoryTable::Behavior::Offset)
       }),
@@ -932,7 +932,7 @@ uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cac
         prefetchers[cpu].access(block_num, ip, this);
         prefetchers[cpu].prefetch(this, block_num);
     }
-    
+
     return metadata_in;
 }
 

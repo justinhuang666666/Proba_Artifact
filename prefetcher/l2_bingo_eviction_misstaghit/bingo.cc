@@ -29,7 +29,6 @@ uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cac
         return metadata_in;
 
     if ((cache_hit && useful_prefetch) || !cache_hit) {
-
         uint64_t block_number = addr >> LOG2_BLOCK_SIZE;
 
         /* call prefetcher and send prefetches */
