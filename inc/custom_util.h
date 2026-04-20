@@ -764,7 +764,7 @@ class BRRIPSetAssociativeCache : public SetAssociativeCache<T> {
     typedef SetAssociativeCache<T> Super;
 
 public:
-    BRRIPSetAssociativeCache(int size, int num_ways, int debug_level = 0, int max_rrpv = 7, double epsilon = 0.1) :
+    BRRIPSetAssociativeCache(int size, int num_ways, int debug_level = 0, int max_rrpv = 7, double epsilon = 0.25) :
         Super(size, num_ways, debug_level), rrpv(this->num_sets, std::vector<uint64_t>(num_ways)),
         max_rrpv(max_rrpv), b_dist(epsilon) {}
 
