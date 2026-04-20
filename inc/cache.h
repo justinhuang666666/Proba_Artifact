@@ -58,6 +58,9 @@ struct cache_stats {
     uint64_t pf_useless = 0;
     uint64_t pf_fill = 0;
 
+    uint64_t num_pht_updates = 0;
+    uint64_t num_end_of_generation_updates = 0;
+
     uint64_t pf_late = 0;
     uint64_t pf_useful_at_l2_from_l1 = 0;
     uint64_t pf_useless_at_l2_from_l1 = 0;
