@@ -239,10 +239,11 @@ private:
     void generate_prefetch(uint64_t pc, uint64_t page, uint32_t offset, uint64_t address);
 
 public:
+    CACHE* cache
     PrefetchBuffer pb;
     DSPatch(string type);
     ~DSPatch();
-    void invoke_prefetcher(uint64_t pc, uint64_t address, uint8_t cache_hit, uint8_t type, vector<uint64_t>& pref_addr, CACHE* cache);
+    void invoke_prefetcher(uint64_t pc, uint64_t address, uint8_t cache_hit, uint8_t type, vector<uint64_t>& pref_addr, CACHE* cache) override;
     int prefetch(CACHE* cache, uint64_t block_num);
     void dump_stats();
     void print_config();

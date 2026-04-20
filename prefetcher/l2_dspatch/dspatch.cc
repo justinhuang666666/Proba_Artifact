@@ -96,7 +96,7 @@ void DSPatch::print_config() {
          << endl;
 }
 
-void DSPatch::invoke_prefetcher(uint64_t pc, uint64_t address, uint8_t cache_hit, uint8_t type, vector<uint64_t>& pref_addr, CACHE* cache) {
+void DSPatch::invoke_prefetcher(uint64_t pc, uint64_t address, uint8_t cache_hit, uint8_t type, vector<uint64_t>& pref_addr) {
     uint64_t page = address >> knob::dspatch_log2_region_size;
     uint32_t offset = (address >> LOG2_BLOCK_SIZE) & ((1ull << (knob::dspatch_log2_region_size - LOG2_BLOCK_SIZE)) - 1);
 
@@ -491,6 +491,7 @@ uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cac
 
     uint64_t block_number = addr >> LOG2_BLOCK_SIZE;
     vector<uint64_t> pref_addr; // not used
+    prefetchers[cpu].cache = this;
     prefetchers[cpu].invoke_prefetcher(ip, addr, cache_hit, type, pref_addr, this);
     prefetchers[cpu].prefetch(this, block_number);
 
