@@ -37,9 +37,9 @@ FilterTable::Entry* FilterTable::find(uint64_t region_num) {
     }
 }
 
-void FilterTable::insert(uint64_t region_num, uint64_t trigger_offset, uint64_t pc) {
+void FilterTable::insert(uint64_t region_num, uint64_t trigger_offset) {
     uint64_t key = build_key(region_num);
-    auto entry = Super::insert(key, {trigger_offset, pc});
+    auto entry = Super::insert(key, {trigger_offset});
     Super::rp_insert(key);
 }
 
@@ -49,7 +49,7 @@ FilterTable::Entry* FilterTable::erase(uint64_t region_num) {
 }
 
 std::string FilterTable::log() {
-    std::vector<std::string> headers({"RegionNum", "Trigger", "PC"});
+    std::vector<std::string> headers({"RegionNum", "Trigger"});
     return Super::log(headers);
 }
 
@@ -61,7 +61,6 @@ uint64_t FilterTable::build_key(uint64_t region_num) {
 void FilterTable::write_data(Entry& entry, custom_util::Table& table, int row) {
     table.set_cell(row, 0, entry.key);
     table.set_cell(row, 1, entry.data.trigger_offset);
-    table.set_cell(row, 2, entry.data.pc);
 }
 
 // ------------------------- AGT functions ------------------------- //
@@ -144,12 +143,26 @@ void PatternHistoryTable::update(uint64_t pc, uint64_t offset1, uint64_t offset2
     Super::rp_promote(key);
 }
 
+void PatternHistoryTable::update_no_touch(uint64_t pc, uint64_t offset1, uint64_t offset2, uint64_t addr, const std::vector<int> &pattern, const custom_util::SaturatingCounter &mode) {
+    assert((int)pattern.size() == proba::NUM_BLOCKS);
+    uint64_t key = build_key(pc, offset1, offset2, addr);
+    // std::cout<<"pc key: "<<std::hex<<key<<std::dec<<std::endl;
+    Super::update(key, {pattern, mode});
+}
+
 PatternHistoryTable::Entry* PatternHistoryTable::find(uint64_t pc, uint64_t offset1, uint64_t offset2, uint64_t addr) {
     if(offset2 == proba::NUM_BLOCKS && behavior == PatternHistoryTable::Behavior::OffsetOffset) return nullptr;
     uint64_t key = build_key(pc, offset1, offset2, addr);
     Entry* entry = Super::find(key);
     if (entry)
         Super::rp_promote(key);
+    return entry;
+}
+
+PatternHistoryTable::Entry* PatternHistoryTable::find_no_touch(uint64_t pc, uint64_t offset1, uint64_t offset2, uint64_t addr) {
+    if(offset2 == proba::NUM_BLOCKS && behavior == PatternHistoryTable::Behavior::OffsetOffset) return nullptr;
+    uint64_t key = build_key(pc, offset1, offset2, addr);
+    Entry* entry = Super::find(key);
     return entry;
 }
 
@@ -175,17 +188,17 @@ uint64_t PatternHistoryTable::build_key(uint64_t pc, uint64_t offset1, uint64_t 
     case PatternHistoryTable::Behavior::PC:
 
         // Use PC only
-        base_key = custom_util::folded_xor(pc, 2);
+        base_key = custom_util::folded_xor(pc, 4);
         break;
 
     case PatternHistoryTable::Behavior::PCOffset:
-        base_key = custom_util::folded_xor(pc, 2);
+        base_key = custom_util::folded_xor(pc, 4);
         base_key = (base_key << proba::OFFSET_WIDTH) | offset1;
         // Use PC + offset
         break;
 
     case PatternHistoryTable::Behavior::PCAddr:
-        base_key = get_hash(pc) ^ get_hash(addr);
+        base_key = get_hash(custom_util::folded_xor(pc, 4)) ^ get_hash(addr);
         break;
 
     case PatternHistoryTable::Behavior::Offset:
@@ -327,16 +340,20 @@ uint64_t PrefetchBuffer::build_key(uint64_t region_num) {
 
 // ------------------------- Proba functions ------------------------- //
 
-Proba::Proba(int agt_size, int agt_ways, int ft_size, int ft_ways, int pht_size, int pht_ways, int width, int jt_size, int pb_size, int pb_ways, bool is_debug, int cpu) :
+Proba::Proba(int agt_size, int agt_ways, int ft_size, int ft_ways, int pht_size, int pht_ways, int width, int jt_size, int pb_size, int pb_ways, int accuracy_threshold, int marginal_accuracy_threshold, bool is_debug, int cpu) :
     agt(agt_size, agt_ways),
-      phts(std::vector<PatternHistoryTable>{
-        //   PatternHistoryTable(pht_size*pht_size, pht_ways, width, PatternHistoryTable::Behavior::PCAddr),
-          PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::OffsetOffset),
-        //   PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::PCOffset),
-          PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::PC),
-          PatternHistoryTable(NUM_BLOCKS, 1, width, PatternHistoryTable::Behavior::Offset)
-      }),
-jt(jt_size),ft(ft_size, ft_ways), pb(pb_size, NUM_BLOCKS, 0, pb_ways), is_debug(is_debug), cpu(cpu) {
+    phts(std::vector<PatternHistoryTable>{
+    //   PatternHistoryTable(pht_size*pht_size, pht_ways, width, PatternHistoryTable::Behavior::PCAddr),
+        PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::OffsetOffset),
+        PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::PCOffset),
+        PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::PC),
+        PatternHistoryTable(NUM_BLOCKS, 1, width, PatternHistoryTable::Behavior::Offset)
+    }),
+    jt(jt_size),
+    ft(ft_size, ft_ways), 
+    pb(pb_size, NUM_BLOCKS, 0, pb_ways), 
+    proba_acc_thr1(accuracy_threshold), proba_acc_thr2(marginal_accuracy_threshold),
+    is_debug(is_debug), cpu(cpu) {
 }
 
 void Proba::ewma_update(uint64_t& ewma, uint64_t sample, int alpha_num, int alpha_den)
@@ -368,7 +385,7 @@ void Proba::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
     int offset2=proba::NUM_BLOCKS;
     auto ft_entry = ft.find(region_num);
     if (!ft_entry && !agt_entry && (!this->jt.in_jail(region_num)||!use_jail_table)) {
-        ft.insert(region_num, region_offset, pc);
+        ft.insert(region_num, region_offset);
         if (is_debug) {
             std::cout << "Access: FT detects first offset for region: 0x" << std::hex << region_num  << ", offset: " << std::dec << region_offset << std::endl;
         }
@@ -585,6 +602,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
     std::vector<int> accuracy(phts.size(), 0);
     std::vector<int> accumulated_prediction;
     std::vector<size_t> active_indices;
+    std::vector<bool> touches(pht.size(),false);
 
     if(is_debug) std::cout << "Observation:        " << custom_util::pattern_to_string(agt_entry.data.pattern) << std::endl;
 
@@ -598,8 +616,10 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
 
         std::vector<int> observation = get_observation_for_table(table);
 
+        touches[tidx] = (count_bits_set(observation) > 0);
+
         uint64_t local_accuracy = 0;
-        auto pht_entry = table.find(agt_entry.data.pc, agt_entry.data.trigger_offset, agt_entry.data.second_offset, agt_entry.data.addr);
+        auto pht_entry = table.find_no_touch(agt_entry.data.pc, agt_entry.data.trigger_offset, agt_entry.data.second_offset, agt_entry.data.addr);
 
         if (pht_entry) {
             if (is_debug) std::cout << "Update: PHT entry found" << std::endl;
@@ -636,6 +656,61 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
         accuracy[tidx] = local_accuracy;
     }
 
+    // calibration
+    std::vector<int> accumulated_observation = pattern_bool2int(agt_entry.data.pattern);
+    accumulated_observation[agt_entry.data.trigger_offset] = 0;
+
+    uint64_t pop_count_accumulated_prediction = count_bits_set(accumulated_prediction);
+    uint64_t same_count_accumulated_observation_accumulated_prediction = count_bits_same(accumulated_prediction, accumulated_observation);
+    global_accurate_pf_sum += same_count_accumulated_observation_accumulated_prediction;
+    global_pf_sum += pop_count_accumulated_prediction;
+    num_valid_update++;
+    total_num_valid_update++;
+    
+    if (num_valid_update >= ewma_window_size) {
+        uint64_t window_accuracy_estimate = 0;
+    
+        if (global_pf_sum > 0) {
+            window_accuracy_estimate =
+                (100ULL * global_accurate_pf_sum) / global_pf_sum;
+        }
+    
+        uint64_t cur_pf_useful = static_cast<uint64_t>(cache->sim_stats.pf_useful);
+        uint64_t cur_pf_unused = static_cast<uint64_t>(cache->sim_stats.pf_useless);
+    
+        uint64_t window_pf_useful = 0;
+        uint64_t window_pf_unused = 0;
+    
+        if (cur_pf_useful >= prev_pf_useful && cur_pf_unused >= prev_pf_unused) {
+            window_pf_useful = cur_pf_useful - prev_pf_useful;
+            window_pf_unused = cur_pf_unused - prev_pf_unused;
+        }
+    
+        uint64_t window_global_accuracy = 0;
+        if (window_pf_useful + window_pf_unused > 0) {
+            window_global_accuracy =
+                (100ULL * window_pf_useful) / (window_pf_useful + window_pf_unused);
+        }
+    
+        bool first_window = (total_num_valid_update == num_valid_update);
+    
+        if (first_window) {
+            ewma_accuracy_estimate = window_accuracy_estimate;
+            ewma_global_accuracy = window_global_accuracy;
+        } else if (cur_pf_useful >= prev_pf_useful && cur_pf_unused >= prev_pf_unused) {
+            ewma_update(ewma_accuracy_estimate, window_accuracy_estimate,
+                        ewma_alpha_num, ewma_alpha_den);
+            ewma_update(ewma_global_accuracy, window_global_accuracy,
+                        ewma_alpha_num, ewma_alpha_den);
+        }
+    
+        global_accurate_pf_sum = 0;
+        global_pf_sum = 0;
+        prev_pf_useful = cur_pf_useful;
+        prev_pf_unused = cur_pf_unused;
+        num_valid_update = 0;
+    }
+
     std::sort(active_indices.begin(), active_indices.end(),[&](size_t a, size_t b) { return accuracy[a] > accuracy[b];});
 
     bool first_iteration = true;
@@ -644,7 +719,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
 
     for (size_t idx : active_indices) {
         auto& table = phts[idx];
-        auto pht_entry = table.find(agt_entry.data.pc, agt_entry.data.trigger_offset, agt_entry.data.second_offset, agt_entry.data.addr);
+        auto pht_entry = table.find_no_touch(agt_entry.data.pc, agt_entry.data.trigger_offset, agt_entry.data.second_offset, agt_entry.data.addr);
         
         if (!pht_entry) continue;
 
@@ -658,12 +733,12 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
             uint64_t local_accuracy = accuracy[idx];
             uint64_t estimated_global_accuracy = ewma_accuracy_estimate;
 
-            int64_t local_acc_thr = proba_acc_thr;
+            int64_t local_acc_thr = proba_acc_thr1;
             int64_t corrected_accuracy = static_cast<int64_t>(local_accuracy);
 
             if (is_accuracy_targeter && ewma_global_accuracy != 0) {
                 int64_t act = static_cast<int64_t>(ewma_global_accuracy);
-                int64_t thr = static_cast<int64_t>(proba_acc_thr);
+                int64_t thr = static_cast<int64_t>(proba_acc_thr1);
                 local_acc_thr = 2 * thr - act;
             }
 
@@ -739,12 +814,12 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
                 std::cout << "Local Marginal Accuracy:            " << local_maccuracy << std::endl;
             }
 
-            int64_t local_acc_thr = proba_acc_thr;
+            int64_t local_acc_thr = proba_acc_thr2;
             int64_t corrected_accuracy = static_cast<int64_t>(local_maccuracy);
 
             if (is_accuracy_targeter && ewma_global_accuracy != 0) {
                 int64_t act = static_cast<int64_t>(ewma_global_accuracy);
-                int64_t thr = static_cast<int64_t>(proba_acc_thr);
+                int64_t thr = static_cast<int64_t>(proba_acc_thr2);
                 local_acc_thr = 2 * thr - act;
             }
 
@@ -783,7 +858,7 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
 
         std::vector<int> observation = get_observation_for_table(table);
 
-        auto pht_entry = table.find(agt_entry.data.pc, agt_entry.data.trigger_offset, agt_entry.data.second_offset, agt_entry.data.addr);
+        auto pht_entry = table.find_no_touch(agt_entry.data.pc, agt_entry.data.trigger_offset, agt_entry.data.second_offset, agt_entry.data.addr);
 
         if (pht_entry) {
             custom_util::SaturatingCounter mode = pht_entry->data.mode;
@@ -822,8 +897,12 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
             }
 
             std::vector<int> stored_prediction = prediction;
-
-            table.update(agt_entry.data.pc, agt_entry.data.trigger_offset, agt_entry.data.second_offset, agt_entry.data.addr, stored_prediction, mode);
+            
+            if (touches[idx]) {
+                table.update(agt_entry.data.pc, agt_entry.data.trigger_offset, agt_entry.data.second_offset, agt_entry.data.addr, stored_prediction, mode);
+            } else {
+                table.update_no_touch(agt_entry.data.pc, agt_entry.data.trigger_offset, agt_entry.data.second_offset, agt_entry.data.addr, stored_prediction, mode);
+            }
         } else {
             std::vector<int> initial_pattern = get_stored_pattern_for_table(table);
 
@@ -913,7 +992,7 @@ uint32_t count_bits_same(const std::vector<int> &pattern1, const std::vector<int
 void CACHE::prefetcher_initialize() {
     std::cout << NAME << " SuperProba NEW NEW prefetcher" << std::endl;
 
-    prefetchers = std::vector<proba::Proba>(NUM_CPUS, proba::Proba(proba::AGT_SIZE, proba::AGT_WAY, proba::FT_SIZE, proba::FT_WAY, proba::PHT_SIZE, proba::PHT_WAY, proba::KEY_WIDTH, proba::JT_SIZE, proba::PB_SIZE, proba::PB_WAY, proba::DEBUG, cpu));
+    prefetchers = std::vector<proba::Proba>(NUM_CPUS, proba::Proba(proba::AGT_SIZE, proba::AGT_WAY, proba::FT_SIZE, proba::FT_WAY, proba::PHT_SIZE, proba::PHT_WAY, proba::KEY_WIDTH, proba::JT_SIZE, proba::PB_SIZE, proba::PB_WAY, proba::ACCURACY_THRESHOLD, proba::MARGINAL_ACCURACY_THRESHOLD, proba::DEBUG, cpu));
 }
 
 uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, bool useful_prefetch, uint8_t type, uint32_t metadata_in) {
@@ -932,7 +1011,7 @@ uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cac
         prefetchers[cpu].access(block_num, ip, this);
         prefetchers[cpu].prefetch(this, block_num);
     }
-    
+
     return metadata_in;
 }
 

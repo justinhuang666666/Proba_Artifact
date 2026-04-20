@@ -599,6 +599,75 @@ def print_benchmark_stats_csv(geomean_speedups, plot_prefetchers, metric_name):
         geomean_values.append(f"{value:.4f}")
     print(f"geomean, " + ", ".join(geomean_values))
 
+
+def get_display_name(prefetcher):
+    if prefetcher == 'l2_sms_eviction':
+        return 'L2 SMS'
+    elif prefetcher == 'l2_sms_eviction_misstaghit':
+        return 'L2 SMS M/TH'
+    elif prefetcher == 'l2_bingo_eviction':
+        return 'L2 Bingo'
+    elif prefetcher == 'l2_bingo_eviction_misstaghit':
+        return 'L2 Bingo M/TH'
+    elif prefetcher == 'l2_dspatch_eviction':
+        return 'L2 DSPatch'
+    elif prefetcher == 'l2_dspatch_eviction_misstaghit':
+        return 'L2 DSPatch M/TH'
+    elif prefetcher == 'l2_pmp_eviction':
+        return 'L2 PMP'
+    elif prefetcher == 'l2_pmp_eviction_misstaghit':
+        return 'L2 PMP M/TH'
+    elif prefetcher == 'l2_gaze_eviction':
+        return 'L2 Gaze'
+    elif prefetcher == 'l2_gaze_eviction_misstaghit':
+        return 'L2 Gaze M/TH'
+    elif prefetcher == 'l2_proba_eviction':
+        return 'L2 Proba'
+    elif prefetcher == 'l2_proba_eog_jail_sampling':
+        return 'L2 Proba EOG Jail Sampling'
+    elif prefetcher == 'l2_proba_eog_jail_sampling_calibration':
+        return 'L2 Proba EOG Jail Sampling Calibration'
+    elif prefetcher == 'l2_superproba':
+        return 'L2 SuperProba'
+    elif prefetcher == 'l2_superproba_offset_pc':
+        return 'L2 SuperProba Off/PC'
+    elif prefetcher == 'l2_superproba_offset_pc_offsetoffset':
+        return 'L2 SuperProba Off/PC/OffOff'
+    elif prefetcher == 'l2_superproba_offset_pcoffset_offsetoffset':
+        return 'L2 SuperProba Off/PCOff/OffOff'
+    elif prefetcher == 'l2_superproba_pc_pcoffset_offsetoffset':
+        return 'L2 SuperProba PC/PCOff/OffOff'
+    elif prefetcher == 'l2_superproba_misstaghit':
+        return 'L2 SuperProba All M/TH'
+    elif prefetcher == 'l2_superproba_offset_pc_misstaghit':
+        return 'L2 SuperProba Off/PC M/TH'
+    elif prefetcher == 'l2_superproba_offset_pc_offsetoffset_misstaghit':
+        return 'L2 SuperProba Off/PC/OffOff M/TH'
+    elif prefetcher == 'l2_superproba_offset_pcoffset_offsetoffset_misstaghit':
+        return 'L2 SuperProba Off/PCOff/OffOff M/TH'
+    elif prefetcher == 'l2_superproba_pc_pcoffset_offsetoffset_misstaghit':
+        return 'L2 SuperProba PC/PCOff/OffOff M/TH'
+    return prefetcher
+
+
+def export_data_file(metric_values, plot_prefetchers, out_filename):
+    if not os.path.exists(GRAPH_DIR):
+        os.makedirs(GRAPH_DIR)
+
+    out_path = os.path.join(GRAPH_DIR, out_filename)
+    display_prefetchers = [get_display_name(p) for p in plot_prefetchers]
+
+    with open(out_path, 'w') as f:
+        f.write("#\t" + "\t".join(display_prefetchers) + "\n")
+
+        for benchmark in BENCHMARKS:
+            bench_name = BENCHMARK_SHORTCODE.get(benchmark, benchmark)
+            vals = [metric_values[p].get(benchmark, 0.0) for p in plot_prefetchers]
+            f.write(f"{bench_name}\t" + "\t".join(f"{v:.9f}".rstrip('0').rstrip('.') for v in vals) + "\n")
+
+        vals = [metric_values[p].get("geomean", 0.0) for p in plot_prefetchers]
+        f.write("geomean\t" + "\t".join(f"{v:.9f}".rstrip('0').rstrip('.') for v in vals) + "\n")
+
 def create_plot(geomean_speedups, plot_prefetchers, metric_name, ylabel, filename, 
                 include_geomean=True, include_baseline=True, ylim_bottom=None, ylim_top=None, 
                 legend_position='right', only_geomean_bar=False, only_geomean_line=False, 
@@ -607,59 +676,7 @@ def create_plot(geomean_speedups, plot_prefetchers, metric_name, ylabel, filenam
     setup_plot_style()
 
     # Create a new list of prefetchers with the display names
-    display_prefetchers = []
-    # Change the names of the prefetchers to the display names
-    for prefetcher in plot_prefetchers:
-        if prefetcher == 'l2_sms_eviction':
-            display_prefetchers.append('L2 SMS')
-        elif prefetcher == 'l2_sms_eviction_misstaghit':
-            display_prefetchers.append('L2 SMS M/TH')
-        elif prefetcher == 'l2_bingo_eviction':
-            display_prefetchers.append('L2 Bingo')
-        elif prefetcher == 'l2_bingo_eviction_misstaghit':
-            display_prefetchers.append('L2 Bingo M/TH')
-        elif prefetcher == 'l2_dspatch_eviction':
-            display_prefetchers.append('L2 DSPatch')
-        elif prefetcher == 'l2_dspatch_eviction_misstaghit':
-            display_prefetchers.append('L2 DSPatch M/TH')
-        elif prefetcher == 'l2_pmp_eviction':
-            display_prefetchers.append('L2 PMP')
-        elif prefetcher == 'l2_pmp_eviction_misstaghit':
-            display_prefetchers.append('L2 PMP M/TH')
-        elif prefetcher == 'l2_gaze_eviction':
-            display_prefetchers.append('L2 Gaze')
-        elif prefetcher == 'l2_gaze_eviction_misstaghit':
-            display_prefetchers.append('L2 Gaze M/TH')
-        elif prefetcher == 'l2_proba_eviction':
-            display_prefetchers.append('L2 Proba')
-        elif prefetcher == 'l2_proba_eog_jail_sampling':
-            display_prefetchers.append('L2 Proba EOG Jail Sampling')
-        elif prefetcher == 'l2_proba_eog_jail_sampling_calibration':
-            display_prefetchers.append('L2 Proba EOG Jail Sampling Calibration')
-        elif prefetcher == 'l2_superproba':
-            display_prefetchers.append('L2 SuperProba')
-        elif prefetcher == 'l2_superproba':
-            display_prefetchers.append('L2 SuperProba All')
-        elif prefetcher == 'l2_superproba_offset_pc':
-            display_prefetchers.append('L2 SuperProba Off/PC')
-        elif prefetcher == 'l2_superproba_offset_pc_offsetoffset':
-            display_prefetchers.append('L2 SuperProba Off/PC/OffOff')
-        elif prefetcher == 'l2_superproba_offset_pcoffset_offsetoffset':
-            display_prefetchers.append('L2 SuperProba Off/PCOff/OffOff')
-        elif prefetcher == 'l2_superproba_pc_pcoffset_offsetoffset':
-            display_prefetchers.append('L2 SuperProba PC/PCOff/OffOff')
-        elif prefetcher == 'l2_superproba_misstaghit':
-            display_prefetchers.append('L2 SuperProba All M/TH')
-        elif prefetcher == 'l2_superproba_offset_pc_misstaghit':
-            display_prefetchers.append('L2 SuperProba Off/PC M/TH')
-        elif prefetcher == 'l2_superproba_offset_pc_offsetoffset_misstaghit':
-            display_prefetchers.append('L2 SuperProba Off/PC/OffOff M/TH')
-        elif prefetcher == 'l2_superproba_offset_pcoffset_offsetoffset_misstaghit':
-            display_prefetchers.append('L2 SuperProba Off/PCOff/OffOff M/TH')
-        elif prefetcher == 'l2_superproba_pc_pcoffset_offsetoffset_misstaghit':
-            display_prefetchers.append('L2 SuperProba PC/PCOff/OffOff M/TH')
-        else:
-            display_prefetchers.append(prefetcher)
+    display_prefetchers = [get_display_name(p) for p in plot_prefetchers]
     
     if plot_traces and trace_labels:
         # Create trace plot showing individual simpoint results
@@ -973,6 +990,12 @@ def main():
                 ylim_bottom=0.0, ylim_top=1.0, only_geomean_bar=ONLY_GEOMEAN_BAR, legend_position='top')
     
     print("All plots created successfully!")
+
+    print("Exporting .data files...")
+    export_data_file(ipc_speedups, ipc_plot_prefetchers, f'{PLOT_NAME}_ipc.data')
+    export_data_file(dram_speedups, dram_plot_prefetchers, f'{PLOT_NAME}_dram.data')
+    export_data_file(cov_speedups, cov_plot_prefetchers, f'{PLOT_NAME}_coverage.data')
+    export_data_file(acc_speedups, acc_plot_prefetchers, f'{PLOT_NAME}_accuracy.data')
 
 if __name__ == "__main__":
     main() 

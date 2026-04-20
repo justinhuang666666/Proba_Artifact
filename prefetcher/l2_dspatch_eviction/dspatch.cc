@@ -31,7 +31,7 @@ namespace knob {
 constexpr int dspatch_log2_region_size = 12;
 constexpr int dspatch_num_cachelines_in_region = 1 << (dspatch_log2_region_size - 6);
 constexpr int dspatch_pb_size = 64;
-constexpr int dspatch_num_spt_entries = 256;
+constexpr int dspatch_num_spt_entries = 1024;
 constexpr int dspatch_compression_granularity = 2;
 constexpr int dspatch_pred_throttle_bw_thr = 3;
 constexpr int dspatch_bitmap_selection_policy = 3;

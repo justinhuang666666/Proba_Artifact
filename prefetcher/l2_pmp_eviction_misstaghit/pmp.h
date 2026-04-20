@@ -20,7 +20,7 @@ namespace pmp {
 #define PS_CACHE_TYPE custom_util::LRUSetAssociativeCache
 
 constexpr int BOTTOM_BITS = 6;
-constexpr int PC_BITS = 5;
+constexpr int PC_BITS = 7;
 constexpr int BACKOFF_TIMES = 1;
 
 constexpr int IN_REGION_BITS = 12;

@@ -37,7 +37,7 @@ constexpr int NUM_BLOCKS = REGION_SIZE / BLOCK_SIZE;
 
 constexpr int FT_SIZE = 64, FT_WAY = 8;
 constexpr int AT_SIZE = 64, AT_WAY = 8;
-constexpr int PT_WAY = 4;
+constexpr int PT_WAY = 16;
 constexpr int PT_SIZE = PT_WAY * NUM_BLOCKS;
 constexpr int PB_SIZE = 32, PB_WAY = 8;
 

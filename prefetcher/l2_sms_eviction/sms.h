@@ -11,7 +11,7 @@ namespace {
 constexpr int REGION_SIZE = 4 * 1024;
 constexpr int PC_WIDTH = 16;
 constexpr int ADDR_WIDTH = 6;
-constexpr int PHT_SIZE = 16 * 1024;
+constexpr int PHT_SIZE = 1024;
 constexpr int FT_SIZE = 64;
 constexpr int FT_WAY = 8;
 constexpr int AT_SIZE = 64;

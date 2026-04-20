@@ -24,7 +24,7 @@ namespace gaze {
 
 #define __region_offset(block_num) (block_num & REGION_OFFSET_MASK)
 
-#define FT_TYPE custom_util::SRRIPSetAssociativeCache
+#define FT_TYPE custom_util::LRUSetAssociativeCache
 #define AT_TYPE custom_util::LRUSetAssociativeCache
 #define PT_TYPE custom_util::LRUSetAssociativeCache
 #define PB_TYPE custom_util::LRUSetAssociativeCache
@@ -37,7 +37,7 @@ constexpr int NUM_BLOCKS = REGION_SIZE / BLOCK_SIZE;
 
 constexpr int FT_SIZE = 64, FT_WAY = 8;
 constexpr int AT_SIZE = 64, AT_WAY = 8;
-constexpr int PT_WAY = 4;
+constexpr int PT_WAY = 16;
 constexpr int PT_SIZE = PT_WAY * NUM_BLOCKS;
 constexpr int PB_SIZE = 32, PB_WAY = 8;
 

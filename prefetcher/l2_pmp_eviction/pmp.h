@@ -15,12 +15,12 @@ namespace pmp {
 #define __fine_offset(addr) (addr & OFFSET_MASK)
 #define __coarse_offset(fine_offset) ((fine_offset) >> (LOG2_BLOCK_SIZE - BOTTOM_BITS))
 
-#define FT_CACHE_TYPE custom_util::SRRIPSetAssociativeCache
+#define FT_CACHE_TYPE custom_util::LRUSetAssociativeCache
 #define AT_CACHE_TYPE custom_util::LRUSetAssociativeCache
 #define PS_CACHE_TYPE custom_util::LRUSetAssociativeCache
 
 constexpr int BOTTOM_BITS = 6;
-constexpr int PC_BITS = 5;
+constexpr int PC_BITS = 7;
 constexpr int BACKOFF_TIMES = 1;
 
 constexpr int IN_REGION_BITS = 12;

@@ -24,11 +24,11 @@ namespace proba {
 #define __region_offset(block_num) (block_num & REGION_OFFSET_MASK)
 
 #define AGT_TYPE custom_util::RandomSetAssociativeCache
-#define PHT_TYPE custom_util::BRRIPSetAssociativeCache
+#define PHT_TYPE custom_util::LRUSetAssociativeCache
 #define PB_TYPE custom_util::LRUSetAssociativeCache
-#define FT_TYPE custom_util::SRRIPSetAssociativeCache
+#define FT_TYPE custom_util::LRUSetAssociativeCache
 
-constexpr uint64_t REGION_SIZE = 4 * 1024; // '4KB', '8KB', '16KB, '32KB', '64KB, '128KB', '512KB', '1024KB', '2048KB'
+constexpr uint64_t REGION_SIZE = 4 * 1024;
 constexpr uint64_t LOG2_REGION_SIZE = champsim::lg2(REGION_SIZE);
 constexpr uint64_t REGION_OFFSET_MASK = (1ULL << (LOG2_REGION_SIZE - LOG2_BLOCK_SIZE)) - 1;
 constexpr bool DEBUG = false;
@@ -40,11 +40,14 @@ constexpr int FT_SIZE = 64, FT_WAY = 8;
 constexpr int PHT_WAY = 16;
 constexpr int PHT_SIZE = 256;
 constexpr int PB_SIZE = 32, PB_WAY = 8;
-constexpr int KEY_WIDTH = 32;
+constexpr int KEY_WIDTH = 16;
 constexpr int PROBA_HASH_TYPE = 2;
 constexpr int OFFSET_WIDTH = LOG2_REGION_SIZE - LOG2_BLOCK_SIZE;
 
-constexpr int JT_SIZE = 4096;
+constexpr int JT_SIZE = 1024;
+
+constexpr int ACCURACY_THRESHOLD = 50;
+constexpr int MARGINAL_ACCURACY_THRESHOLD = 50;
 
 constexpr int PF_FILL_L1 = 1;
 constexpr int PF_FILL_L2 = 2;
@@ -91,7 +94,6 @@ public:
 // ------------------------- Filter Table ------------------------- //
 struct FilterTableData {
     uint64_t trigger_offset;
-    uint64_t pc;
 };
 
 class FilterTable : public FT_TYPE<FilterTableData> {
@@ -105,7 +107,7 @@ public:
     FilterTable(int size, int num_ways);
 
     Entry* find(uint64_t region_num);
-    void insert(uint64_t region_num, uint64_t trigger_offset, uint64_t pc);
+    void insert(uint64_t region_num, uint64_t trigger_offset);
     Entry* erase(uint64_t region_num);
 
     std::string log();
@@ -142,8 +144,9 @@ public:
     PatternHistoryTable(int size, int num_ways, int width, Behavior behavior);
     void insert(uint64_t pc, uint64_t offset1, uint64_t offset2, uint64_t addr, const std::vector<int> &pattern); 
     void update(uint64_t pc, uint64_t offset1, uint64_t offset2, uint64_t addr, const std::vector<int> &pattern, const custom_util::SaturatingCounter &mode);
+    void update_no_touch(uint64_t pc, uint64_t offset1, uint64_t offset2, uint64_t addr, const std::vector<int> &pattern, const custom_util::SaturatingCounter &mode);
     Entry* find(uint64_t pc, uint64_t offset1, uint64_t offset2, uint64_t addr);
-
+    Entry* find_no_touch(uint64_t pc, uint64_t offset1, uint64_t offset2, uint64_t addr);
     std::string log();
 };
 
@@ -235,7 +238,8 @@ private:
     PrefetchBuffer pb;
 
     int sample_rate = 10;
-    int proba_acc_thr = 50;
+    int proba_acc_thr1;
+    int proba_acc_thr2;
 
     int ewma_window_size = 1000;
     int ewma_alpha_num = 1;
@@ -269,7 +273,7 @@ public:
     int global_level = 0;
     bool warmup;
 
-    Proba(int agt_size, int agt_ways, int, int, int pht_size, int pht_ways, int width, int jt_size, int pb_size, int pb_ways, bool is_debug, int cpu);
+    Proba(int agt_size, int agt_ways, int, int, int pht_size, int pht_ways, int width, int jt_size, int pb_size, int pb_ways, int accuracy_threshold, int marginal_accuracy_threshold, bool is_debug, int cpu);
 
     void set_warmup(bool warmup);
 

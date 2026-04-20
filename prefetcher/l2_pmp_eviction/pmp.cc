@@ -17,8 +17,8 @@ bool SUPPORT_VA = false;
 constexpr int PATTERN_LEN = (1 << pmp::IN_REGION_BITS) / BLOCK_SIZE;
 constexpr int FT_SIZE = 64;
 constexpr int FT_WAY = 8;
-constexpr int AT_SIZE = 32;
-constexpr int AT_WAY = 16;
+constexpr int AT_SIZE = 64;
+constexpr int AT_WAY = 8;
 // Offset Pattern Table
 constexpr int OPT_WAYS = 1;
 constexpr int OPT_SIZE = (1 << pmp::OFFSET_BITS) * OPT_WAYS;
