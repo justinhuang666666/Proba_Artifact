@@ -764,14 +764,19 @@ class BRRIPSetAssociativeCache : public SetAssociativeCache<T> {
     typedef SetAssociativeCache<T> Super;
 
 public:
-    BRRIPSetAssociativeCache(int size, int num_ways, int debug_level = 0, int max_rrpv = 3, double epsilon = 0.1) :
+    BRRIPSetAssociativeCache(int size, int num_ways, int debug_level = 0, int max_rrpv = 7, double epsilon = 0.1) :
         Super(size, num_ways, debug_level), rrpv(this->num_sets, std::vector<uint64_t>(num_ways)),
         max_rrpv(max_rrpv), b_dist(epsilon) {}
 
-    void rp_promote(uint64_t key) { *this->get_rrpv(key) = 0; }
+    void rp_promote(uint64_t key) {
+        auto* val = this->get_rrpv(key);
+        if (*val > 0) --(*val);
+    }
 
-    void rp_insert(uint64_t key) { *this->get_rrpv(key) = b_dist(engine) ? 2 : 3; }
-
+    void rp_insert(uint64_t key) {
+        auto* val = this->get_rrpv(key);
+        *val = b_dist(engine) ? (max_rrpv - 1) : max_rrpv;
+    }
 protected:
     /* @override */
     int select_victim(uint64_t index) {
