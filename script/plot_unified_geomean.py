@@ -61,7 +61,7 @@ if BENCHMARK_TYPE != 'GAP':
 BASELINE = 'no'
 
 # ABLATION STUDY
-PREFETCHERS = ['l2_sms_eviction', 'l2_bingo_eviction', 'l2_dspatch_eviction', 'l2_pmp_eviction', 'l2_gaze_eviction']
+PREFETCHERS = ['l2_sms', 'l2_bingo', 'l2_dspatch', 'l2_pmp', 'l2_gaze']
 
 if BASELINE not in PREFETCHERS:
     PREFETCHERS.append(BASELINE)
@@ -162,7 +162,7 @@ def _determine_cpu_str(path):
         else:
             return None
     else:
-        # Single component prefetcher names like l2_bingo_eviction
+        # Single component prefetcher names like l2_bingo
         return 'cpu0_L2C'
 
 def parse_ipc_from_file(filepath):
@@ -601,27 +601,17 @@ def print_benchmark_stats_csv(geomean_speedups, plot_prefetchers, metric_name):
 
 
 def get_display_name(prefetcher):
-    if prefetcher == 'l2_sms_eviction':
+    if prefetcher == 'l2_sms':
         return 'L2 SMS'
-    elif prefetcher == 'l2_sms_eviction_misstaghit':
-        return 'L2 SMS M/TH'
-    elif prefetcher == 'l2_bingo_eviction':
+    elif prefetcher == 'l2_bingo':
         return 'L2 Bingo'
-    elif prefetcher == 'l2_bingo_eviction_misstaghit':
-        return 'L2 Bingo M/TH'
-    elif prefetcher == 'l2_dspatch_eviction':
+    elif prefetcher == 'l2_dspatch':
         return 'L2 DSPatch'
-    elif prefetcher == 'l2_dspatch_eviction_misstaghit':
-        return 'L2 DSPatch M/TH'
-    elif prefetcher == 'l2_pmp_eviction':
+    elif prefetcher == 'l2_pmp':
         return 'L2 PMP'
-    elif prefetcher == 'l2_pmp_eviction_misstaghit':
-        return 'L2 PMP M/TH'
-    elif prefetcher == 'l2_gaze_eviction':
+    elif prefetcher == 'l2_gaze':
         return 'L2 Gaze'
-    elif prefetcher == 'l2_gaze_eviction_misstaghit':
-        return 'L2 Gaze M/TH'
-    elif prefetcher == 'l2_proba_eviction':
+    elif prefetcher == 'l2_proba':
         return 'L2 Proba'
     elif prefetcher == 'l2_proba_eog_jail_sampling':
         return 'L2 Proba EOG Jail Sampling'
@@ -637,16 +627,7 @@ def get_display_name(prefetcher):
         return 'L2 SuperProba Off/PCOff/OffOff'
     elif prefetcher == 'l2_superproba_pc_pcoffset_offsetoffset':
         return 'L2 SuperProba PC/PCOff/OffOff'
-    elif prefetcher == 'l2_superproba_misstaghit':
-        return 'L2 SuperProba All M/TH'
-    elif prefetcher == 'l2_superproba_offset_pc_misstaghit':
-        return 'L2 SuperProba Off/PC M/TH'
-    elif prefetcher == 'l2_superproba_offset_pc_offsetoffset_misstaghit':
-        return 'L2 SuperProba Off/PC/OffOff M/TH'
-    elif prefetcher == 'l2_superproba_offset_pcoffset_offsetoffset_misstaghit':
-        return 'L2 SuperProba Off/PCOff/OffOff M/TH'
-    elif prefetcher == 'l2_superproba_pc_pcoffset_offsetoffset_misstaghit':
-        return 'L2 SuperProba PC/PCOff/OffOff M/TH'
+    
     return prefetcher
 
 

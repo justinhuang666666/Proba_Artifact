@@ -15,7 +15,7 @@ from _SPEC2017_def import SPEC2017_shortcode, SPEC2017_path
 WARMUP_INSTRUCTIONS = 50000000
 SIMULATION_INSTRUCTIONS = 100000000
 
-PREFETCHERS = ['no', 'l2_sms_eviction', 'l2_bingo_eviction', 'l2_dspatch_eviction', 'l2_pmp_eviction', 'l2_gaze_eviction', 'l2_superproba']
+PREFETCHERS = ['no', 'l2_sms', 'l2_bingo', 'l2_dspatch', 'l2_pmp', 'l2_gaze', 'l2_superproba']
 
 def parse_args():
     default_parallelism = os.cpu_count() or 1
