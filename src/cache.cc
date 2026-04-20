@@ -558,7 +558,7 @@ void CACHE::end_phase(unsigned finished_cpu) {
     roi_stats.pf_useless = sim_stats.pf_useless;
     roi_stats.pf_fill = sim_stats.pf_fill;
 
-    roi_stats.num_pht_udpates = sim_stats.num_pht_udpates;
+    roi_stats.num_pht_updates = sim_stats.num_pht_udpates;
     roi_stats.num_end_of_generation_updates = sim_stats.num_end_of_generation_updates;
 
     roi_stats.pf_late = sim_stats.pf_late;
