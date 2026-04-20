@@ -302,7 +302,7 @@ public:
         pht(pattern_history_table_size, pattern_len, addr_width, pc_width),
         pb(pb_size, pattern_len) {}
 
-    void access(uint64_t block_number, uint64_t pc) {
+    void access(uint64_t block_number, uint64_t pc, CACHE* cache) {
         if (this->debug_level >= 1) {
             std::cerr << "[SMS] access(block_number=" << block_number << ", pc=" << pc << ")" << std::endl;
         }
@@ -330,7 +330,7 @@ public:
             this->filter_table.erase(region_number);
             if (victim.valid) {
                 /* move from accumulation table to pattern history table */
-                this->insert_in_pht(victim);
+                this->insert_in_pht(victim, false, cache);
             }
         }
         return;
@@ -341,14 +341,14 @@ public:
         return pf_issued;
     }
 
-    void eviction(uint64_t block_number) {
+    void eviction(uint64_t block_number, CACHE* cache) {
         /* end of generation */
         uint64_t region_number = block_number / this->pattern_len;
         this->filter_table.erase(region_number);
         AccumulationTable::Entry* entry = this->accumulation_table.erase(region_number);
         if (entry) {
             /* move from accumulation table to pattern history table */
-            this->insert_in_pht(*entry);
+            this->insert_in_pht(*entry, true, cache);
         }
     }
 
@@ -376,10 +376,14 @@ public:
         return pattern;
     }
 
-    void insert_in_pht(const AccumulationTable::Entry& entry) {
+    void insert_in_pht(const AccumulationTable::Entry& entry, bool is_end_of_generation, CACHE* cache) {
         if (this->debug_level >= 1) {
             std::cerr << "[SMS] insert_in_pht(...)" << std::endl;
         }
+        
+        cache->sim_stats.num_pht_updates++;
+        if (is_end_of_generation) cache->sim_stats.num_end_of_generation_updates++;
+
         uint64_t pc = entry.data.pc;
         uint64_t address = entry.key * this->pattern_len + entry.data.offset;
         const std::vector<bool>& pattern = entry.data.pattern;

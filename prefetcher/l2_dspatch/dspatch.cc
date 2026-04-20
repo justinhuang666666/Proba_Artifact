@@ -96,7 +96,7 @@ void DSPatch::print_config() {
          << endl;
 }
 
-void DSPatch::invoke_prefetcher(uint64_t pc, uint64_t address, uint8_t cache_hit, uint8_t type, vector<uint64_t>& pref_addr) {
+void DSPatch::invoke_prefetcher(uint64_t pc, uint64_t address, uint8_t cache_hit, uint8_t type, vector<uint64_t>& pref_addr, CACHE* cache) {
     uint64_t page = address >> knob::dspatch_log2_region_size;
     uint32_t offset = (address >> LOG2_BLOCK_SIZE) & ((1ull << (knob::dspatch_log2_region_size - LOG2_BLOCK_SIZE)) - 1);
 
@@ -116,7 +116,7 @@ void DSPatch::invoke_prefetcher(uint64_t pc, uint64_t address, uint8_t cache_hit
         if (page_buffer.size() >= knob::dspatch_pb_size) {
             pbentry = page_buffer.front();
             page_buffer.pop_front();
-            add_to_spt(pbentry);
+            add_to_spt(pbentry, false, cache);
             // if(knob::dspatch_enable_debug)
             // {
             // 	debug_pbentry(pbentry);
@@ -297,7 +297,10 @@ uint32_t DSPatch::get_hash(uint32_t key) {
     }
 }
 
-void DSPatch::add_to_spt(DSPatch_PBEntry* pbentry) {
+void DSPatch::add_to_spt(DSPatch_PBEntry* pbentry, bool is_end_of_generation, CACHE* cache) {
+    cache->sim_stats.num_pht_updates++;
+    if (is_end_of_generation) cache->sim_stats.num_end_of_generation_updates++;
+    
     stats.spt.called++;
     Bitmap bmp_real, bmp_cov, bmp_acc;
     bmp_real = pbentry->bmp_real;
@@ -455,12 +458,12 @@ void DSPatch::dump_stats() {
     std::cout << pb.log() << std::endl;
 }
 
-void DSPatch::eviction(uint64_t block_num) {
+void DSPatch::eviction(uint64_t block_num, CACHE* cache) {
     uint64_t page_num = block_num >> (knob::dspatch_log2_region_size - LOG2_BLOCK_SIZE);
 
     auto entry = search_pb(page_num);
     if (entry) {
-        add_to_spt(entry);
+        add_to_spt(entry, true, cache);
         erase(page_num);
     }
 }
@@ -488,7 +491,7 @@ uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cac
 
     uint64_t block_number = addr >> LOG2_BLOCK_SIZE;
     vector<uint64_t> pref_addr; // not used
-    prefetchers[cpu].invoke_prefetcher(ip, addr, cache_hit, type, pref_addr);
+    prefetchers[cpu].invoke_prefetcher(ip, addr, cache_hit, type, pref_addr, this);
     prefetchers[cpu].prefetch(this, block_number);
 
     // if (!pref_addr.empty()) {
@@ -504,7 +507,7 @@ uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cac
 uint32_t CACHE::prefetcher_cache_fill(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in) {
     uint64_t evicted_block_num = evicted_addr >> LOG2_BLOCK_SIZE;
 
-    prefetchers[cpu].eviction(evicted_block_num);
+    prefetchers[cpu].eviction(evicted_block_num, this);
 
     return metadata_in;
 }

@@ -15,7 +15,7 @@ namespace pmp {
 #define __fine_offset(addr) (addr & OFFSET_MASK)
 #define __coarse_offset(fine_offset) ((fine_offset) >> (LOG2_BLOCK_SIZE - BOTTOM_BITS))
 
-#define FT_CACHE_TYPE custom_util::SRRIPSetAssociativeCache
+#define FT_CACHE_TYPE custom_util::LRUSetAssociativeCache
 #define AT_CACHE_TYPE custom_util::LRUSetAssociativeCache
 #define PS_CACHE_TYPE custom_util::LRUSetAssociativeCache
 
@@ -415,8 +415,8 @@ public:
                       << ", debug_level=" << debug_level << ")" << std::endl;
     }
 
-    void access(uint64_t block_number, uint64_t pc);
-    void eviction(uint64_t block_number);
+    void access(uint64_t block_number, uint64_t pc, CACHE* cache);
+    void eviction(uint64_t block_number, CACHE* cache);
     int prefetch(CACHE* cache, uint64_t block_number);
     void set_debug_level(int debug_level);
     void log();
@@ -430,7 +430,7 @@ public:
 private:
     std::vector<int>
     find_in_opt(uint64_t pc, uint64_t block_number);
-    void insert_in_opt(const AccumulationTable::Entry& entry);
+    void insert_in_opt(const AccumulationTable::Entry& entry, bool is_end_of_generation, CACHE* cache);
     std::vector<int> vote(const std::vector<OffsetPatternTableData>& x, bool is_pc_opt = false);
 
     const double L1D_THRESH = 2.0; /* off */

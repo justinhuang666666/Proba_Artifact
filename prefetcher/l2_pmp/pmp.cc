@@ -35,7 +35,7 @@ static std::vector<pmp::PMP> prefetchers;
 
 } // namespace
 
-void pmp::PMP::access(uint64_t block_number, uint64_t pc) {
+void pmp::PMP::access(uint64_t block_number, uint64_t pc, CACHE* cache) {
     if (this->debug_level >= 2)
         std::cerr << "[ PMP] access(block_number=0x" << std::hex << block_number << ", pc=0x" << pc << ")" << std::dec << std::endl;
 
@@ -62,12 +62,12 @@ void pmp::PMP::access(uint64_t block_number, uint64_t pc) {
         this->filter_table.erase(region_number);
         if (victim.valid) {
             invalid_by_max++;
-            this->insert_in_opt(victim);
+            this->insert_in_opt(victim, false, cache);
         }
     }
 }
 
-void pmp::PMP::eviction(uint64_t block_number) {
+void pmp::PMP::eviction(uint64_t block_number, CACHE* cache) {
     if (this->debug_level >= 2)
         std::cerr << "[ PMP] eviction(block_number=" << block_number << ")" << std::dec << std::endl;
     uint64_t region_number = block_number / this->pattern_len;
@@ -75,7 +75,7 @@ void pmp::PMP::eviction(uint64_t block_number) {
     AccumulationTable::Entry* entry = this->accumulation_table.erase(region_number);
     if (entry) {
         invalid_by_eviction++;
-        this->insert_in_opt(*entry);
+        this->insert_in_opt(*entry, true, cache);
     }
 }
 
@@ -161,7 +161,10 @@ std::vector<int> pmp::PMP::find_in_opt(uint64_t pc, uint64_t block_number) {
     return result_pattern;
 }
 
-void pmp::PMP::insert_in_opt(const pmp::AccumulationTable::Entry& entry) {
+void pmp::PMP::insert_in_opt(const pmp::AccumulationTable::Entry& entry, bool is_end_of_generation, CACHE* cache) {
+    cache->sim_stats.num_pht_updates++;
+    if (is_end_of_generation) cache->sim_stats.num_end_of_generation_updates++;
+
     uint64_t region_number = custom_util::hash_index(entry.key, this->accumulation_table.get_index_len());
     uint64_t address = (region_number << OFFSET_BITS) + entry.data.offset;
     if (this->debug_level >= 2) {
@@ -261,7 +264,7 @@ uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cac
 
     uint64_t block_number = addr >> pmp::BOTTOM_BITS;
 
-    prefetchers[cpu].access(block_number, ip);
+    prefetchers[cpu].access(block_number, ip, this);
 
     prefetchers[cpu].prefetch(this, block_number);
 
@@ -275,7 +278,7 @@ uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cac
 uint32_t CACHE::prefetcher_cache_fill(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in) {
     uint64_t evicted_block_number = evicted_addr >> LOG2_BLOCK_SIZE;
 
-    prefetchers[cpu].eviction(evicted_block_number);
+    prefetchers[cpu].eviction(evicted_block_number, this);
 
     return metadata_in;
 }

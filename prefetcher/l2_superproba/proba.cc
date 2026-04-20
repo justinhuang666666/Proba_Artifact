@@ -533,7 +533,9 @@ void Proba::log() {
 }
 
 void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is_end_of_generation, CACHE* cache) {
+    cache->sim_stats.num_pht_updates++;
     if (is_end_of_generation) {
+        cache->sim_stats.num_end_of_generation_updates++;
         if (is_debug) std::cout << "Update: AGT end-of-generation eviction" << std::endl;
     } else {
         jt.mark(agt_entry.key);

@@ -401,7 +401,7 @@ public:
         pht(pht_size, pattern_len, min_addr_width, max_addr_width, pc_width, debug_level, pht_ways),
         pf_buffer(pb_size, pattern_len, debug_level, pb_way) {}
 
-    void access(uint64_t block_number, uint64_t pc) {
+    void access(uint64_t block_number, uint64_t pc, CACHE* cache) {
         uint64_t region_number = block_number / this->pattern_len;
         int region_offset = block_number % this->pattern_len;
         bool success = this->accumulation_table.set_pattern(region_number, region_offset);
@@ -426,7 +426,7 @@ public:
             this->filter_table.erase(region_number);
             if (victim.valid) {
                 /* move from accumulation table to pattern history table */
-                this->insert_in_phts(victim);
+                this->insert_in_phts(victim, false, cache);
             }
         }
         return;
@@ -437,14 +437,14 @@ public:
         return pf_issued;
     }
 
-    void eviction(uint64_t block_number) {
+    void eviction(uint64_t block_number, CACHE* cache) {
         /* end of generation */
         uint64_t region_number = block_number / this->pattern_len;
         this->filter_table.erase(region_number);
         AccumulationTable::Entry* entry = this->accumulation_table.erase(region_number);
         if (entry) {
             /* move from accumulation table to pattern history table */
-            this->insert_in_phts(*entry);
+            this->insert_in_phts(*entry, true, cache);
         }
     }
 
@@ -542,10 +542,13 @@ private:
         return pattern;
     }
 
-    void insert_in_phts(const AccumulationTable::Entry& entry) {
+    void insert_in_phts(const AccumulationTable::Entry& entry, bool is_end_of_generation, CACHE* cache) {
         if (this->debug_level >= 1) {
             std::cerr << "[Bingo] insert_in_phts(...)" << std::endl;
         }
+        cache->sim_stats.num_pht_updates++;
+        if (is_end_of_generation) cache->sim_stats.num_end_of_generation_updates++;
+
         uint64_t pc = entry.data.pc;
         uint64_t region_number = custom_util::hash_index(entry.key, this->accumulation_table.get_index_len());
         uint64_t address = region_number * this->pattern_len + entry.data.offset;

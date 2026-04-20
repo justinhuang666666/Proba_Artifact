@@ -232,7 +232,7 @@ private:
     uint64_t create_signature(uint64_t pc, uint64_t page, uint32_t offset);
     uint32_t get_spt_index(uint64_t signature);
     uint32_t get_hash(uint32_t key);
-    void add_to_spt(DSPatch_PBEntry* pbentry);
+    void add_to_spt(DSPatch_PBEntry* pbentry, bool is_end_of_generation, CACHE* cache);
 
     void erase(uint64_t page_num);
     DSPatch_pref_candidate dyn_selection(DSPatch_SPTEntry* sptentry, Bitmap& bmp_selected);
@@ -242,12 +242,12 @@ public:
     PrefetchBuffer pb;
     DSPatch(string type);
     ~DSPatch();
-    void invoke_prefetcher(uint64_t pc, uint64_t address, uint8_t cache_hit, uint8_t type, vector<uint64_t>& pref_addr);
+    void invoke_prefetcher(uint64_t pc, uint64_t address, uint8_t cache_hit, uint8_t type, vector<uint64_t>& pref_addr, CACHE* cache);
     int prefetch(CACHE* cache, uint64_t block_num);
     void dump_stats();
     void print_config();
     void update_bw(uint8_t bw);
-    void eviction(uint64_t block_num); 
+    void eviction(uint64_t block_num, CACHE* cache); 
 };
 
 #endif

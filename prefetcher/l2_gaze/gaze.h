@@ -24,7 +24,7 @@ namespace gaze {
 
 #define __region_offset(block_num) (block_num & REGION_OFFSET_MASK)
 
-#define FT_TYPE custom_util::SRRIPSetAssociativeCache
+#define FT_TYPE custom_util::LRUSetAssociativeCache
 #define AT_TYPE custom_util::LRUSetAssociativeCache
 #define PT_TYPE custom_util::LRUSetAssociativeCache
 #define PB_TYPE custom_util::LRUSetAssociativeCache
@@ -193,7 +193,7 @@ private:
     PrefetchBuffer pb;
 
     PatternTable::Entry* find_in_pt(uint64_t trigger, uint64_t second, uint64_t pc, uint64_t region_num);
-    void insert_in_pt(const AccumulateTable::Entry& entry, uint64_t region_num);
+    void insert_in_pt(const AccumulateTable::Entry& entry, uint64_t region_num, bool is_end_of_generation, CACHE* cache);
 
 public:
     int global_level = 0;
@@ -204,7 +204,7 @@ public:
     void set_warmup(bool warmup);
 
     void access(uint64_t block_num, uint64_t ip, CACHE* cache);
-    void eviction(uint64_t block_num);
+    void eviction(uint64_t block_num, CACHE* cache);
     void prefetch(CACHE* cache, uint64_t block_num);
 
     void stride_prefetch(uint64_t block_num);

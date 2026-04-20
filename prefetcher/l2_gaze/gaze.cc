@@ -356,18 +356,18 @@ void Gaze::access(uint64_t block_num, uint64_t pc, CACHE* cache) {
             auto at_victim = at.insert(region_num, entry->data.trigger_offset, region_offset, entry->data.pc, pattern_empty, (!pattern_empty) && pt_entry->data.con);
             ft.erase(region_num);
             if (at_victim.valid) {
-                insert_in_pt(at_victim, region_num);
+                insert_in_pt(at_victim, region_num, false, cache);
             }
         }
     }
 }
 
-void Gaze::eviction(uint64_t block_num) {
+void Gaze::eviction(uint64_t block_num, CACHE* cache) {
     uint64_t region_num = block_num >> (LOG2_REGION_SIZE - LOG2_BLOCK_SIZE);
     ft.erase(region_num);
     auto entry = at.erase(region_num);
     if (entry) {
-        insert_in_pt(*entry, region_num);
+        insert_in_pt(*entry, region_num, true, cache);
     }
 }
 
@@ -404,7 +404,10 @@ PatternTable::Entry* Gaze::find_in_pt(uint64_t trigger, uint64_t second, uint64_
     }
 }
 
-void Gaze::insert_in_pt(const AccumulateTable::Entry& entry, uint64_t region_num) {
+void Gaze::insert_in_pt(const AccumulateTable::Entry& entry, uint64_t region_num, bool is_end_of_generation, CACHE* cache) {
+    cache->sim_stats.num_pht_updates++;
+    if (is_end_of_generation) cache->sim_stats.num_end_of_generation_updates++;
+    
     uint64_t trigger = entry.data.trigger_offset, second = entry.data.second_offset, pc = entry.data.pc;
     pt.insert(trigger, second, pc, region_num, entry.data.pattern);
 }
@@ -468,22 +471,19 @@ void CACHE::prefetcher_initialize() {
 }
 
 uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, bool useful_prefetch, uint8_t type, uint32_t metadata_in) {
+    uint64_t line_addr = (addr >> LOG2_BLOCK_SIZE); 
+    uint64_t region_num = (addr >> LOG2_PAGE_SIZE);
+    int offset = line_addr % gaze::NUM_BLOCKS;
+
+    prefetchers[cpu].set_warmup(warmup);
+
     if (type != LOAD && type != PREFETCH)
         return metadata_in;
-    
-    if ((cache_hit && useful_prefetch) || !cache_hit) {
-        uint64_t line_addr = (addr >> LOG2_BLOCK_SIZE); 
-        uint64_t region_num = (addr >> LOG2_PAGE_SIZE);
-        int offset = line_addr % gaze::NUM_BLOCKS;
+    uint64_t block_num = addr >> LOG2_BLOCK_SIZE;
 
-        prefetchers[cpu].set_warmup(warmup);
+    prefetchers[cpu].access(block_num, ip, this);
+    prefetchers[cpu].prefetch(this, block_num);
 
-        uint64_t block_num = addr >> LOG2_BLOCK_SIZE;
-
-        prefetchers[cpu].access(block_num, ip, this);
-        prefetchers[cpu].prefetch(this, block_num);
-    }
-    
     return metadata_in;
 }
 
