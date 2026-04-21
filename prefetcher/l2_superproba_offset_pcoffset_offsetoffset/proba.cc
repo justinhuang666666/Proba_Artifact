@@ -662,8 +662,15 @@ void Proba::update_in_pht(const ActiveGenerationTable::Entry& agt_entry, bool is
     std::vector<int> accumulated_observation = pattern_bool2int(agt_entry.data.pattern);
     accumulated_observation[agt_entry.data.trigger_offset] = 0;
 
-    uint64_t pop_count_accumulated_prediction = count_bits_set(accumulated_prediction);
-    uint64_t same_count_accumulated_observation_accumulated_prediction = count_bits_same(accumulated_prediction, accumulated_observation);
+    uint64_t pop_count_accumulated_prediction = 0;
+    uint64_t same_count_accumulated_observation_accumulated_prediction = 0;
+
+    if (!accumulated_prediction.empty()) {
+        pop_count_accumulated_prediction = count_bits_set(accumulated_prediction);
+        same_count_accumulated_observation_accumulated_prediction =
+            count_bits_same(accumulated_prediction, accumulated_observation);
+    }
+
     global_accurate_pf_sum += same_count_accumulated_observation_accumulated_prediction;
     global_pf_sum += pop_count_accumulated_prediction;
     num_valid_update++;
