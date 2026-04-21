@@ -464,27 +464,46 @@ def compute_geomean_speedups(data, metric_type, baseline_name=None):
                         values.append(ratio)
                         value_weights.append(weight)
                 
+                # elif metric_type == 'coverage':
+                #     cov_data = data[prefetcher].get(label)
+                #     if cov_data:
+                #         useful, demand_misses = cov_data
+                #         coverage = useful / (useful + demand_misses)
+                #         weight = weight_map[sp]
+                #         values.append(coverage)
+                #         value_weights.append(weight)
                 elif metric_type == 'coverage':
                     cov_data = data[prefetcher].get(label)
-                    if cov_data:
+                    if cov_data is not None:
                         useful, demand_misses = cov_data
-                        coverage = useful / (useful + demand_misses)
-                        weight = weight_map[sp]
-                        values.append(coverage)
-                        value_weights.append(weight)
-                
+                        denom = useful + demand_misses
+                        if denom > 0:
+                            coverage = useful / denom
+                            weight = weight_map[sp]
+                            values.append(coverage)
+                            value_weights.append(weight)
+                # elif metric_type == 'accuracy':
+                #     acc_data = data[prefetcher].get(label)
+                #     if acc_data:
+                #         useful, useless = acc_data
+                #         if useful == 0:
+                #             accuracy = 1.0  # No prefetches issued
+                #         else:
+                #             accuracy = useful / (useful + useless)
+                #         weight = weight_map[sp]
+                #         values.append(accuracy)
+                #         value_weights.append(weight)
+
                 elif metric_type == 'accuracy':
                     acc_data = data[prefetcher].get(label)
-                    if acc_data:
+                    if acc_data is not None:
                         useful, useless = acc_data
-                        if useful == 0:
-                            accuracy = 1.0  # No prefetches issued
-                        else:
-                            accuracy = useful / (useful + useless)
-                        weight = weight_map[sp]
-                        values.append(accuracy)
-                        value_weights.append(weight)
-            
+                        denom = useful + useless
+                        if denom > 0:
+                            accuracy = useful / denom
+                            weight = weight_map[sp]
+                            values.append(accuracy)
+                            value_weights.append(weight)
             # Compute the aggregate value for this benchmark
             if metric_type == 'ipc':
                 if base_ipcs and test_ipcs and weights:
