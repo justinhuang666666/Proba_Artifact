@@ -119,6 +119,8 @@ void champsim::json_printer::print(CACHE::stats_type cache_stats, CACHE::NonTran
     stream << indent() << "\"pf_useless_at_l2_from_l1\": " << std::setw(10) << cache_stats.pf_useless_at_l2_from_l1 << "," << std::endl;
     stream << indent() << "\"pf_at_l2_to_l1\": " << std::setw(10) << cache_stats.l2_pf_to_l1 << "," << std::endl;
     stream << indent() << "\"pf_fill_this_level\": " << std::setw(10) << cache_stats.pf_fill_this_level << "," << std::endl;
+    stream << indent() << "\"num of pht updates\": " << cache_stats.num_pht_updates << "," << std::endl;
+    stream << indent() << "\"num of end of generation updates\": " << cache_stats.num_end_of_generation_updates << "," << std::endl;
 
     double TOTAL_MISS = 0;
     for (const auto& type : types)

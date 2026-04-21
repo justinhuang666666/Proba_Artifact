@@ -17,7 +17,7 @@ from _GAP_WEIGHTS import GAP_SHORTCODE_WEIGHTS
 LOG_DIR = os.path.join('results', 'json') 
 GRAPH_DIR = 'graphs'
 OUTPUT = "png"  # Use PNG for PowerPoint compatibility
-PLOT_NAME = 'sms'
+PLOT_NAME = 'proba'
 
 PRINT_BENCH_STATS = False
 
@@ -61,7 +61,7 @@ if BENCHMARK_TYPE != 'GAP':
 BASELINE = 'no'
 
 # ABLATION STUDY
-PREFETCHERS = ['l2_sms', 'l2_bingo', 'l2_dspatch', 'l2_pmp', 'l2_gaze']
+PREFETCHERS = ['l2_sms', 'l2_bingo', 'l2_dspatch', 'l2_pmp', 'l2_gaze', 'l2_superproba']
 
 if BASELINE not in PREFETCHERS:
     PREFETCHERS.append(BASELINE)
@@ -602,34 +602,118 @@ def print_benchmark_stats_csv(geomean_speedups, plot_prefetchers, metric_name):
 
 def get_display_name(prefetcher):
     if prefetcher == 'l2_sms':
-        return 'L2 SMS'
+        return 'SMS'
     elif prefetcher == 'l2_bingo':
-        return 'L2 Bingo'
+        return 'Bingo'
     elif prefetcher == 'l2_dspatch':
-        return 'L2 DSPatch'
+        return 'DSPatch'
     elif prefetcher == 'l2_pmp':
-        return 'L2 PMP'
+        return 'PMP'
     elif prefetcher == 'l2_gaze':
-        return 'L2 Gaze'
+        return 'Gaze'
     elif prefetcher == 'l2_proba':
-        return 'L2 Proba'
+        return 'Proba'
     elif prefetcher == 'l2_proba_eog_jail_sampling':
-        return 'L2 Proba EOG Jail Sampling'
+        return 'Proba EOG Jail Sampling'
     elif prefetcher == 'l2_proba_eog_jail_sampling_calibration':
-        return 'L2 Proba EOG Jail Sampling Calibration'
+        return 'Proba EOG Jail Sampling Calibration'
     elif prefetcher == 'l2_superproba':
-        return 'L2 SuperProba'
+        return 'SuperProba'
     elif prefetcher == 'l2_superproba_offset_pc':
-        return 'L2 SuperProba Off/PC'
+        return 'SuperProba Off/PC'
+    elif prefetcher == 'l2_superproba_pc_pcoffset':
+        return 'SuperProba PC/PCOff'
     elif prefetcher == 'l2_superproba_offset_pc_offsetoffset':
-        return 'L2 SuperProba Off/PC/OffOff'
+        return 'SuperProba Off/PC/OffOff'
     elif prefetcher == 'l2_superproba_offset_pcoffset_offsetoffset':
-        return 'L2 SuperProba Off/PCOff/OffOff'
+        return 'SuperProba Off/PCOff/OffOff'
     elif prefetcher == 'l2_superproba_pc_pcoffset_offsetoffset':
-        return 'L2 SuperProba PC/PCOff/OffOff'
+        return 'SuperProba PC/PCOff/OffOff'
     
     return prefetcher
 
+
+# def export_data_file(metric_values, plot_prefetchers, out_filename):
+#     if not os.path.exists(GRAPH_DIR):
+#         os.makedirs(GRAPH_DIR)
+
+#     out_path = os.path.join(GRAPH_DIR, out_filename)
+#     display_prefetchers = [get_display_name(p) for p in plot_prefetchers]
+
+#     with open(out_path, 'w') as f:
+#         f.write("#\t" + "\t".join(display_prefetchers) + "\n")
+
+#         for benchmark in BENCHMARKS:
+#             bench_name = BENCHMARK_SHORTCODE.get(benchmark, benchmark)
+#             vals = [metric_values[p].get(benchmark, 0.0) for p in plot_prefetchers]
+#             f.write(f"{bench_name}\t" + "\t".join(f"{v:.9f}".rstrip('0').rstrip('.') for v in vals) + "\n")
+
+#         vals = [metric_values[p].get("geomean", 0.0) for p in plot_prefetchers]
+#         f.write("geomean\t" + "\t".join(f"{v:.9f}".rstrip('0').rstrip('.') for v in vals) + "\n")
+
+def benchmark_to_data_name(benchmark):
+    mapped = BENCHMARK_SHORTCODE.get(benchmark)
+
+    name = None
+
+    # SPEC maps to a list of traces in your setup
+    if isinstance(mapped, list) and mapped:
+        first_trace = os.path.basename(mapped[0])
+        m = re.match(r'^\d+\.([^-]+)', first_trace)
+        if m:
+            name = m.group(1)
+
+    # GAP or other string shortcode maps
+    elif isinstance(mapped, str):
+        name = mapped
+
+    # fallback from benchmark key itself, e.g. astar473 -> astar
+    if name is None:
+        m = re.match(r'^([A-Za-z_][A-Za-z0-9_]*?)(\d+)$', benchmark)
+        if m:
+            name = m.group(1)
+        else:
+            name = benchmark
+
+    # normalize SPEC2017 suffix/style
+    name = re.sub(r'_s$', '', name)
+
+    alias = {
+        'perlbench': 'perlbench',
+        'perlbench_s': 'perlbench',
+        'bzip2': 'bzip2',
+        'gcc': 'gcc',
+        'gcc_s': 'gcc',
+        'bwaves': 'bwaves',
+        'bwaves_s': 'bwaves',
+        'mcf': 'mcf',
+        'mcf_s': 'mcf',
+        'cactusADM': 'cactus',
+        'cactuBSSN_s': 'cactus',
+        'cactuBSSN': 'cactus',
+        'leslie3d': 'leslie3d',
+        'dealII': 'dealII',
+        'GemsFDTD': 'gems',
+        'h264ref': 'h264',
+        'sphinx3': 'sphinx',
+        'omnetpp': 'omnet',
+        'omnetpp_s': 'omnet',
+        'xalancbmk': 'xalan',
+        'xalancbmk_s': 'xalan',
+        'deepsjeng': 'sjeng',
+        'deepsjeng_s': 'sjeng',
+        'exchange2_s': 'exchange2',
+        'cam4_s': 'cam4',
+        'pop2_s': 'pop2',
+        'imagick_s': 'imagick',
+        'leela_s': 'leela',
+        'nab_s': 'nab',
+        'fotonik3d_s': 'fotonik3d',
+        'roms_s': 'roms',
+        'xz_s': 'xz',
+    }
+
+    return alias.get(name, name)
 
 def export_data_file(metric_values, plot_prefetchers, out_filename):
     if not os.path.exists(GRAPH_DIR):
@@ -642,12 +726,20 @@ def export_data_file(metric_values, plot_prefetchers, out_filename):
         f.write("#\t" + "\t".join(display_prefetchers) + "\n")
 
         for benchmark in BENCHMARKS:
-            bench_name = BENCHMARK_SHORTCODE.get(benchmark, benchmark)
+            bench_name = benchmark_to_data_name(benchmark)
             vals = [metric_values[p].get(benchmark, 0.0) for p in plot_prefetchers]
-            f.write(f"{bench_name}\t" + "\t".join(f"{v:.9f}".rstrip('0').rstrip('.') for v in vals) + "\n")
+            f.write(
+                f"{bench_name}\t" +
+                "\t".join(f"{v:.9f}".rstrip('0').rstrip('.') for v in vals) +
+                "\n"
+            )
 
         vals = [metric_values[p].get("geomean", 0.0) for p in plot_prefetchers]
-        f.write("geomean\t" + "\t".join(f"{v:.9f}".rstrip('0').rstrip('.') for v in vals) + "\n")
+        f.write(
+            "geomean\t" +
+            "\t".join(f"{v:.9f}".rstrip('0').rstrip('.') for v in vals) +
+            "\n"
+        )
 
 def create_plot(geomean_speedups, plot_prefetchers, metric_name, ylabel, filename, 
                 include_geomean=True, include_baseline=True, ylim_bottom=None, ylim_top=None, 

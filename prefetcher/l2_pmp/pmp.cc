@@ -264,9 +264,11 @@ uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cac
 
     uint64_t block_number = addr >> pmp::BOTTOM_BITS;
 
-    prefetchers[cpu].access(block_number, ip, this);
+    if ((cache_hit && useful_prefetch) || !cache_hit) {
+        prefetchers[cpu].access(block_number, ip, this);
 
-    prefetchers[cpu].prefetch(this, block_number);
+        prefetchers[cpu].prefetch(this, block_number);
+    }
 
     if (DEBUG_LEVEL >= 3) {
         prefetchers[cpu].log();

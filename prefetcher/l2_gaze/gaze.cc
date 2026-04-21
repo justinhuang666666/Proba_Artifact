@@ -481,8 +481,10 @@ uint32_t CACHE::prefetcher_cache_operate(uint64_t addr, uint64_t ip, uint8_t cac
         return metadata_in;
     uint64_t block_num = addr >> LOG2_BLOCK_SIZE;
 
-    prefetchers[cpu].access(block_num, ip, this);
-    prefetchers[cpu].prefetch(this, block_num);
+    if ((cache_hit && useful_prefetch) || !cache_hit) {
+        prefetchers[cpu].access(block_num, ip, this);
+        prefetchers[cpu].prefetch(this, block_num);
+    }
 
     return metadata_in;
 }
