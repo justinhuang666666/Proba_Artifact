@@ -7,7 +7,7 @@ def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     os.chdir('../../Proba_Champsim')
     
-    for prefetcher in ['no', 'l2_sms', 'l2_bingo', 'l2_dspatch', 'l2_pmp', 'l2_gaze', 'l2_superproba']:
+    for prefetcher in ['no', 'l2_sms', 'l2_bingo', 'l2_dspatch', 'l2_pmp', 'l2_gaze', 'l2_superproba_pc_pcoffset_offsetoffset', 'l2_superproba_pc_pcoffset_offsetoffset_calibration']:
         make_1core_l2_prefetcher(prefetcher)
     
     print('Done.')
