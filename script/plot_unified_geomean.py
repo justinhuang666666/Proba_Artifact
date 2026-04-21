@@ -61,7 +61,7 @@ if BENCHMARK_TYPE != 'GAP':
 BASELINE = 'no'
 
 # ABLATION STUDY
-PREFETCHERS = ['l2_sms', 'l2_bingo', 'l2_dspatch', 'l2_pmp', 'l2_gaze', 'l2_superproba']
+PREFETCHERS = ['l2_sms', 'l2_bingo', 'l2_dspatch', 'l2_pmp', 'l2_gaze', 'l2_superproba_pc_pcoffset_offsetoffset', 'l2_superproba_pc_pcoffset_offsetoffset_calibration']
 
 if BASELINE not in PREFETCHERS:
     PREFETCHERS.append(BASELINE)
