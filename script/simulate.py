@@ -15,7 +15,7 @@ from _SPEC2017_def import SPEC2017_shortcode, SPEC2017_path
 WARMUP_INSTRUCTIONS = 50000000
 SIMULATION_INSTRUCTIONS = 100000000
 
-PREFETCHERS = ['no', 'l2_sms', 'l2_bingo', 'l2_dspatch', 'l2_pmp', 'l2_gaze', 'l2_superproba_pc_pcoffset_offsetoffset', 'l2_superproba_pc_pcoffset_offsetoffset_calibration']
+PREFETCHERS = ['no', 'l2_sms', 'l2_bingo', 'l2_dspatch', 'l2_pmp', 'l2_gaze', 'l2_superproba_pc_pcoffset_offsetoffset_40_20', 'l2_superproba_pc_pcoffset_offsetoffset_40_40', 'l2_superproba_pc_pcoffset_offsetoffset_40_60', 'l2_superproba_pc_pcoffset_offsetoffset_40_80', 'l2_superproba_pc_pcoffset_offsetoffset_60_20', 'l2_superproba_pc_pcoffset_offsetoffset_60_40', 'l2_superproba_pc_pcoffset_offsetoffset_60_60', 'l2_superproba_pc_pcoffset_offsetoffset_60_80']
 
 def parse_args():
     default_parallelism = os.cpu_count() or 1
