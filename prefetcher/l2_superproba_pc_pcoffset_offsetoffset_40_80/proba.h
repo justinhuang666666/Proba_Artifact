@@ -46,8 +46,8 @@ constexpr int OFFSET_WIDTH = LOG2_REGION_SIZE - LOG2_BLOCK_SIZE;
 
 constexpr int JT_SIZE = 1024;
 
-constexpr int ACCURACY_THRESHOLD = 50;
-constexpr int MARGINAL_ACCURACY_THRESHOLD = 50;
+constexpr int ACCURACY_THRESHOLD = 40;
+constexpr int MARGINAL_ACCURACY_THRESHOLD = 60;
 
 constexpr int PF_FILL_L1 = 1;
 constexpr int PF_FILL_L2 = 2;

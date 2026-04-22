@@ -345,9 +345,9 @@ Proba::Proba(int agt_size, int agt_ways, int ft_size, int ft_ways, int pht_size,
     phts(std::vector<PatternHistoryTable>{
     //   PatternHistoryTable(pht_size*pht_size, pht_ways, width, PatternHistoryTable::Behavior::PCAddr),
         PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::OffsetOffset),
-        // PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::PCOffset),
-        PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::PC),
-        PatternHistoryTable(NUM_BLOCKS, 1, width, PatternHistoryTable::Behavior::Offset)
+        PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::PCOffset),
+        PatternHistoryTable(pht_size, pht_ways, width, PatternHistoryTable::Behavior::PC)
+        // PatternHistoryTable(NUM_BLOCKS, 1, width, PatternHistoryTable::Behavior::Offset)
     }),
     jt(jt_size),
     ft(ft_size, ft_ways), 
@@ -371,7 +371,7 @@ std::pair<uint64_t,uint64_t> Proba::get_probs(custom_util::SaturatingCounter mod
         1, 5, 10, 40, 100, 100, 100, 100
     };
     static constexpr std::array<uint64_t,8> delete_probabilities = {
-        100, 100, 100, 100, 100, 40, 20, 10
+        100, 100, 100, 100, 100, 60, 40, 20
     };
     return { insert_probabilities[mode.get_cnt()], delete_probabilities[mode.get_cnt()] };
 }

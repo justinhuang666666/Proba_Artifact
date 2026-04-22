@@ -46,8 +46,8 @@ constexpr int OFFSET_WIDTH = LOG2_REGION_SIZE - LOG2_BLOCK_SIZE;
 
 constexpr int JT_SIZE = 1024;
 
-constexpr int ACCURACY_THRESHOLD = 50;
-constexpr int MARGINAL_ACCURACY_THRESHOLD = 50;
+constexpr int ACCURACY_THRESHOLD = 60;
+constexpr int MARGINAL_ACCURACY_THRESHOLD = 20;
 
 constexpr int PF_FILL_L1 = 1;
 constexpr int PF_FILL_L2 = 2;
@@ -246,7 +246,7 @@ private:
     int ewma_alpha_den = 2;
 
     bool is_accuracy_targeter = false;
-    bool is_accuracy_correction = true;
+    bool is_accuracy_correction = false;
 
     uint64_t num_valid_update = 0;
     uint64_t total_num_valid_update = 0;
