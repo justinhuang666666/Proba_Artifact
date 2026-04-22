@@ -17,7 +17,7 @@ from _GAP_WEIGHTS import GAP_SHORTCODE_WEIGHTS
 LOG_DIR = os.path.join('results', 'json') 
 GRAPH_DIR = 'graphs'
 OUTPUT = "png"  # Use PNG for PowerPoint compatibility
-PLOT_NAME = 'proba'
+PLOT_NAME = 'proba_spec2017'
 
 PRINT_BENCH_STATS = False
 
@@ -31,7 +31,7 @@ IPC_MEAN_TYPE = 'harmonic'
 # 'SPEC2006' - SPEC2006 benchmarks  
 # 'SPEC_ALL' - All SPEC benchmarks
 # 'GAP' - GAP graph benchmarks
-BENCHMARK_TYPE = 'SPEC_ALL'  # Change to 'GAP' for GAP benchmarks
+BENCHMARK_TYPE = 'SPEC2017'  # Change to 'GAP' for GAP benchmarks
 
 # Select benchmarks based on type
 if BENCHMARK_TYPE == 'GAP':
@@ -61,7 +61,7 @@ if BENCHMARK_TYPE != 'GAP':
 BASELINE = 'no'
 
 # ABLATION STUDY
-PREFETCHERS = ['l2_sms', 'l2_bingo', 'l2_dspatch', 'l2_pmp', 'l2_gaze', 'l2_superproba_pc_pcoffset_offsetoffset', 'l2_superproba_pc_pcoffset_offsetoffset_calibration']
+PREFETCHERS = ['l2_sms', 'l2_bingo', 'l2_dspatch', 'l2_pmp', 'l2_gaze', 'l2_superproba_pc_pcoffset_offsetoffset']
 
 if BASELINE not in PREFETCHERS:
     PREFETCHERS.append(BASELINE)
@@ -189,40 +189,18 @@ def parse_dram_from_file(filepath):
     except (KeyError, IndexError, TypeError, ValueError):
         return None
 
-
 def parse_cov_from_file(filepath):
-    # Determine which cache level to use based on prefetcher configuration in the path
-
-    cpu_str = _determine_cpu_str(filepath)
-
-    # Skip paths where there is no prefetcher (e.g., no-no)
-    if cpu_str is None:
-        return None
-
+    """
+    For LLC coverage, return raw LLC load misses.
+    JSON format stores LLC hit/miss as 1-element lists.
+    """
     roi = get_roi(filepath)
 
     try:
-        if cpu_str == 'cpu0_L1D':
-            useful = roi[cpu_str]['prefetch useful']
-            demand_misses = roi[cpu_str]['LOAD']['miss']
-
-        elif cpu_str == 'cpu0_L2C':
-            # Match reference code first if present, otherwise fall back
-            useful = roi[cpu_str]['prefetch useful']
-            demand_misses = roi[cpu_str]['LOAD']['miss']
-
-        elif cpu_str == 'LLC':
-            useful = roi[cpu_str].get('prefetch useful')
-            demand_misses = roi[cpu_str]['LOAD']['miss']
-
-        else:
-            return None
-
-        if useful is None or demand_misses is None:
-            return None
-
-        return float(useful), float(demand_misses)
-
+        llc_load_miss = roi['LLC']['LOAD']['miss']
+        if isinstance(llc_load_miss, list):
+            return float(llc_load_miss[0])
+        return float(llc_load_miss)
     except (KeyError, IndexError, TypeError, ValueError):
         return None
 
@@ -260,37 +238,39 @@ def parse_acc_from_file(filepath):
     except (KeyError, IndexError, TypeError, ValueError):
         return None
 
-# --- DATA GATHERING FUNCTIONS ---
-# def gather_data(parse_func, metric_name):
-#     """Generic function to gather data using the specified parsing function"""
-#     data = defaultdict(dict)
-    
-#     for benchmark in BENCHMARKS:
-#         for prefetcher in PREFETCHERS:
-#             path = os.path.join(LOG_DIR, prefetcher, benchmark)
-#             if not os.path.isdir(path):
-#                 print(f"Missing directory: {path}")
-#                 continue
+def parse_eog_from_file(filepath):
+    # Re-use the same helper logic as in parse_cov_from_file
 
-#             for filename in os.listdir(path):
-#                 if filename.endswith('.txt'):
-#                     simpoint = filename.replace('.txt', '')
-#                     # Quick and dirty hack, sorry Jacob :(
-#                     if re.match(r'^\d+\.', simpoint):
-#                         simpoint = simpoint[len(re.match(r'^\d+\.', simpoint).group(0)):]
-#                     filepath = os.path.join(path, filename)
-#                     result = parse_func(filepath)
-#                     if result is not None:
-#                         label = f"{benchmark}/{simpoint}"
-#                         # Standardize prefetcher names for display
-#                         display_name = prefetcher
-#                         if prefetcher == 'bop':
-#                             display_name = 'BOP'
-#                         elif prefetcher == 'berti_stride':
-#                             display_name = 'Berti'
-#                         data[display_name][label] = result
-    
-#     return data
+    cpu_str = _determine_cpu_str(filepath)
+
+    if cpu_str is None:
+        return None
+
+    roi = get_roi(filepath)
+
+    try:
+        if cpu_str == 'cpu0_L1D':
+            eog_updates = roi[cpu_str]['num of end of generation updates']
+            updates = roi[cpu_str]['num of pht updates']
+
+        elif cpu_str == 'cpu0_L2C':
+            eog_updates = roi[cpu_str]['num of end of generation updates']
+            updates = roi[cpu_str]['num of pht updates']
+
+        elif cpu_str == 'LLC':
+            eog_updates = roi[cpu_str]['num of end of generation updates']
+            updates = roi[cpu_str]['num of pht updates']
+
+        else:
+            return None
+
+        if eog_updates is None or updates is None:
+            return None
+
+        return float(eog_updates), float(updates)
+
+    except (KeyError, IndexError, TypeError, ValueError):
+        return None
 
 def gather_data(parse_func, metric_name):
     data = defaultdict(dict)
@@ -402,133 +382,126 @@ def weighted_geomean_speedup(base_ipcs, test_ipcs, weights):
         log_sum += math.log(speedup) * w
     
     return math.exp(log_sum)
-
 def compute_geomean_speedups(data, metric_type, baseline_name=None):
-    """Compute correctly weighted speedups for different metric types.
-    
-    For IPC: Uses harmonic mean of speedups (via weighted sum of times) within a benchmark,
-             then geometric mean across benchmarks.
-    For other metrics: Uses arithmetic mean within benchmark, geometric mean across benchmarks.
-    """
+    """Compute correctly weighted benchmark-level metrics."""
     geomean_speedups = defaultdict(dict)
-    
+
     for benchmark in BENCHMARKS:
         weight_map = BENCHMARK_WEIGHTS.get(benchmark, {})
         simpoints = list(weight_map.keys())
-        
-        # Get display names for prefetchers. For coverage/accuracy we skip the baseline ("no-no").
+
         display_prefetchers = []
         for p in PREFETCHERS:
-            # Optionally skip baseline for non-relative metrics
             if p == baseline_name and metric_type in ['coverage', 'accuracy']:
                 continue
             else:
                 display_prefetchers.append(p)
-        
+
         for prefetcher in display_prefetchers:
-            # For IPC, we need to collect raw IPC values to compute harmonic mean properly
+            # IPC
             base_ipcs = []
             test_ipcs = []
             weights = []
-            
-            # For other metrics, we collect the computed values
-            values = []
-            value_weights = []
-            
+
+            # Count-first accumulators
+            weighted_base_dram = 0.0
+            weighted_test_dram = 0.0
+
+            weighted_base_llc_load_miss = 0.0
+            weighted_test_llc_load_miss = 0.0
+
+            weighted_useful = 0.0
+            weighted_useless = 0.0
+
+            weighted_eog_updates = 0.0
+            weighted_updates = 0.0
+
             for sp in simpoints:
-                # Quick and dirty hack, sorry Jacob :(
-                # For SPEC traces: strip leading "600." prefix
-                # For GAP traces: use as-is (e.g., "bc-0")
                 if re.match(r'^\d+\.', sp):
                     sp_name = sp[len(re.match(r'^\d+\.', sp).group(0)):]
                 else:
                     sp_name = sp
-                
+
                 label = f"{benchmark}/{sp_name}"
-                
+                weight = weight_map[sp]
+
                 if metric_type == 'ipc':
                     base_value = data[baseline_name].get(label) if baseline_name else None
                     test_value = data[prefetcher].get(label)
                     if base_value and test_value and base_value > 0 and test_value > 0:
-                        weight = weight_map[sp]
                         base_ipcs.append(base_value)
                         test_ipcs.append(test_value)
                         weights.append(weight)
-                
+
                 elif metric_type == 'dram':
                     base_value = data[baseline_name].get(label) if baseline_name else None
                     test_value = data[prefetcher].get(label)
-                    if base_value and test_value:
-                        ratio = test_value / base_value
-                        weight = weight_map[sp]
-                        values.append(ratio)
-                        value_weights.append(weight)
-                
-                # elif metric_type == 'coverage':
-                #     cov_data = data[prefetcher].get(label)
-                #     if cov_data:
-                #         useful, demand_misses = cov_data
-                #         coverage = useful / (useful + demand_misses)
-                #         weight = weight_map[sp]
-                #         values.append(coverage)
-                #         value_weights.append(weight)
+                    if base_value is not None and test_value is not None:
+                        weighted_base_dram += weight * base_value
+                        weighted_test_dram += weight * test_value
+
                 elif metric_type == 'coverage':
-                    cov_data = data[prefetcher].get(label)
-                    if cov_data is not None:
-                        useful, demand_misses = cov_data
-                        denom = useful + demand_misses
-                        if denom > 0:
-                            coverage = useful / denom
-                            weight = weight_map[sp]
-                            values.append(coverage)
-                            value_weights.append(weight)
-                # elif metric_type == 'accuracy':
-                #     acc_data = data[prefetcher].get(label)
-                #     if acc_data:
-                #         useful, useless = acc_data
-                #         if useful == 0:
-                #             accuracy = 1.0  # No prefetches issued
-                #         else:
-                #             accuracy = useful / (useful + useless)
-                #         weight = weight_map[sp]
-                #         values.append(accuracy)
-                #         value_weights.append(weight)
+                    base_value = data[baseline_name].get(label) if baseline_name else None
+                    test_value = data[prefetcher].get(label)
+                    if base_value is not None and test_value is not None:
+                        weighted_base_llc_load_miss += weight * base_value
+                        weighted_test_llc_load_miss += weight * test_value
 
                 elif metric_type == 'accuracy':
                     acc_data = data[prefetcher].get(label)
                     if acc_data is not None:
                         useful, useless = acc_data
-                        denom = useful + useless
-                        if denom > 0:
-                            accuracy = useful / denom
-                            weight = weight_map[sp]
-                            values.append(accuracy)
-                            value_weights.append(weight)
-            # Compute the aggregate value for this benchmark
+                        weighted_useful += weight * useful
+                        weighted_useless += weight * useless
+
+                elif metric_type == 'eog':
+                    eog_data = data[prefetcher].get(label)
+                    if eog_data is not None:
+                        eog_updates, updates = eog_data
+                        weighted_eog_updates += weight * eog_updates
+                        weighted_updates += weight * updates
+
             if metric_type == 'ipc':
                 if base_ipcs and test_ipcs and weights:
-                    # Use the selected mean type for IPC speedups
                     if IPC_MEAN_TYPE == 'harmonic':
                         geomean_speedups[prefetcher][benchmark] = weighted_harmonic_mean_speedup(
-                            base_ipcs, test_ipcs, weights)
-                    else:  # geomean
+                            base_ipcs, test_ipcs, weights
+                        )
+                    else:
                         geomean_speedups[prefetcher][benchmark] = weighted_geomean_speedup(
-                            base_ipcs, test_ipcs, weights)
+                            base_ipcs, test_ipcs, weights
+                        )
                 else:
-                    print(f"Incomplete data for benchmark: {benchmark} prefetcher: {prefetcher}")
                     geomean_speedups[prefetcher][benchmark] = 0.0
-            else:
-                if values and value_weights:
-                    # Use weighted arithmetic mean for DRAM, coverage, accuracy
-                    geomean_speedups[prefetcher][benchmark] = weighted_arithmetic_mean(values, value_weights)
+
+            elif metric_type == 'dram':
+                if weighted_base_dram > 0:
+                    geomean_speedups[prefetcher][benchmark] = weighted_test_dram / weighted_base_dram
                 else:
-                    print(f"Incomplete data for benchmark: {benchmark} prefetcher: {prefetcher}")
                     geomean_speedups[prefetcher][benchmark] = 0.0
-    
-    # Compute overall geomean across benchmarks (geometric mean is appropriate here
-    # since benchmarks are different workloads, not weighted parts of the same workload)
+
+            elif metric_type == 'coverage':
+                if weighted_base_llc_load_miss > 0:
+                    miss_ratio = weighted_test_llc_load_miss / weighted_base_llc_load_miss
+                    geomean_speedups[prefetcher][benchmark] = (1.0 - miss_ratio) if miss_ratio < 1.0 else 0.0
+                else:
+                    geomean_speedups[prefetcher][benchmark] = 0.0
+
+            elif metric_type == 'accuracy':
+                denom = weighted_useful + weighted_useless
+                if denom > 0:
+                    geomean_speedups[prefetcher][benchmark] = weighted_useful / denom
+                else:
+                    geomean_speedups[prefetcher][benchmark] = 1.0
+
+            elif metric_type == 'eog':
+                if weighted_updates > 0:
+                    geomean_speedups[prefetcher][benchmark] = weighted_eog_updates / weighted_updates
+                else:
+                    geomean_speedups[prefetcher][benchmark] = 0.0
+
     plot_prefetchers = [p for p in display_prefetchers if p != baseline_name] if baseline_name else display_prefetchers
-    
+
     for prefetcher in plot_prefetchers:
         values = [geomean_speedups[prefetcher][bm] for bm in BENCHMARKS if geomean_speedups[prefetcher][bm] > 0]
         if values:
@@ -537,7 +510,7 @@ def compute_geomean_speedups(data, metric_type, baseline_name=None):
         else:
             overall_geo = 0.0
         geomean_speedups[prefetcher]["geomean"] = overall_geo
-    
+
     return geomean_speedups, plot_prefetchers
 
 def compute_trace_speedups(data, metric_type, baseline_name=None):
@@ -977,6 +950,9 @@ def main():
     
     print("Gathering accuracy data...")
     acc_data = gather_data(parse_acc_from_file, 'accuracy')
+
+    print("Gathering eog data...")
+    eog_data = gather_data(parse_eog_from_file, 'eog')
     
     # Compute geomean speedups for each metric
     print("--------------------------------")
@@ -1018,6 +994,8 @@ def main():
     for prefetcher in acc_plot_prefetchers:
         print(f"> {prefetcher}: {acc_speedups[prefetcher].get('geomean', 0.0)}")
     print("--------------------------------")
+
+    eog_speedups, eog_plot_prefetchers = compute_geomean_speedups(eog_data, 'eog', BASELINE)
 
     # Print benchmark statistics in CSV format if enabled
     if PRINT_BENCH_STATS:
@@ -1072,7 +1050,7 @@ def main():
                 f'{PLOT_NAME}_dram.{OUTPUT}', include_geomean=INCLUDE_GEOMEAN, include_baseline=True, ylim_bottom=0.9, only_geomean_bar=ONLY_GEOMEAN_BAR, only_geomean_line=ONLY_GEOMEAN_LINE, legend_position='top')
     
     print("Creating coverage plot...")
-    create_plot(cov_speedups, cov_plot_prefetchers, 'coverage', 'L2C Coverage', 
+    create_plot(cov_speedups, cov_plot_prefetchers, 'coverage', 'LLC Coverage', 
                 f'{PLOT_NAME}_coverage.{OUTPUT}', include_geomean=INCLUDE_GEOMEAN, include_baseline=False, 
                 ylim_bottom=0.0, only_geomean_bar=ONLY_GEOMEAN_BAR, legend_position='top')
     
@@ -1088,6 +1066,7 @@ def main():
     export_data_file(dram_speedups, dram_plot_prefetchers, f'{PLOT_NAME}_dram.data')
     export_data_file(cov_speedups, cov_plot_prefetchers, f'{PLOT_NAME}_coverage.data')
     export_data_file(acc_speedups, acc_plot_prefetchers, f'{PLOT_NAME}_accuracy.data')
+    export_data_file(eog_speedups, eog_plot_prefetchers, f'{PLOT_NAME}_eog.data')
 
 if __name__ == "__main__":
     main() 

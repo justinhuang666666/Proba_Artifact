@@ -65,8 +65,9 @@ struct cache_stats {
     uint64_t pf_useful_at_l2_from_l1 = 0;
     uint64_t pf_useless_at_l2_from_l1 = 0;
     uint64_t pf_late_at_l2_from_l1 = 0;
-    uint64_t pf_useful_at_llc_from_l1 = 0;  // not used
-    uint64_t pf_useless_at_llc_from_l1 = 0; // not used
+    uint64_t pf_useful_at_llc_from_l2 = 0;
+    uint64_t pf_useless_at_llc_from_l2 = 0;
+    uint64_t pf_late_at_llc_from_l2 = 0;
     uint64_t pf_fill_this_level = 0;
     uint64_t l2_pf_to_l1 = 0;
     uint64_t mshr_full = 0;

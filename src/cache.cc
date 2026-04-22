@@ -77,6 +77,10 @@ bool CACHE::handle_fill(const PACKET& fill_mshr) {
                     num_useless_gaze[way->pf_metadata & 3]++;
             }
 
+            if (way->from_prefetch && way->sour_level == 2 && way->dest_level == 3 && this->NAME.find("LLC") != std::string::npos) {
+                ++sim_stats.pf_useless_at_llc_from_l2;
+            }
+
             if (way->prefetch) {
                 // used for pollution, evict a prefetched block
                 metadata_thru |= (1 << 23);
@@ -185,6 +189,11 @@ bool CACHE::try_hit(const PACKET& handle_pkt) {
                 num_useful_gaze[way->pf_metadata & 3]++;
         }
 
+        if (way->from_prefetch && handle_pkt.type != PREFETCH && way->dest_level == 3 && way->sour_level == 2 && this->NAME.find("LLC") != std::string::npos) { // only consider L1D prefetcher
+            ++sim_stats.pf_useful_at_llc_from_l2;
+            way->from_prefetch = false;
+        }
+
         // update prefetch stats and reset prefetch bit
         if (way->prefetch && !handle_pkt.prefetch_from_this) {
             ++sim_stats.pf_useful;
@@ -255,6 +264,10 @@ bool CACHE::handle_miss(const PACKET& handle_pkt) {
                 ++sim_stats.pf_late_at_l2_from_l1;
                 if (!warmup)
                     num_useful_gaze[mshr_entry->pf_metadata & 3]++;
+            }
+            if (__pf_dest(mshr_entry->pf_metadata) == 3 && __pf_sour(mshr_entry->pf_metadata) == 2 && this->NAME.find("LLC") != std::string::npos) {
+                ++sim_stats.pf_useful_at_llc_from_l2;
+                ++sim_stats.pf_late_at_llc_from_l2;
             }
 
             uint64_t prior_event_cycle = mshr_entry->event_cycle;
@@ -566,8 +579,11 @@ void CACHE::end_phase(unsigned finished_cpu) {
     roi_stats.pf_useful_at_l2_from_l1 = sim_stats.pf_useful_at_l2_from_l1;
     roi_stats.pf_late_at_l2_from_l1 = sim_stats.pf_late_at_l2_from_l1;
     roi_stats.pf_useless_at_l2_from_l1 = sim_stats.pf_useless_at_l2_from_l1;
-    roi_stats.pf_useful_at_llc_from_l1 = sim_stats.pf_useful_at_llc_from_l1;
-    roi_stats.pf_useless_at_llc_from_l1 = sim_stats.pf_useless_at_llc_from_l1;
+
+    roi_stats.pf_useful_at_llc_from_l2 = sim_stats.pf_useful_at_llc_from_l2;
+    roi_stats.pf_late_at_llc_from_l2 = sim_stats.pf_late_at_llc_from_l2;
+    roi_stats.pf_useless_at_llc_from_l2 = sim_stats.pf_useless_at_llc_from_l2;
+
     roi_stats.l2_pf_to_l1 = sim_stats.l2_pf_to_l1;
     roi_stats.mshr_full = sim_stats.mshr_full;
     for (int i = 0; i < 6; i++) {
