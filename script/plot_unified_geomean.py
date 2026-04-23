@@ -206,8 +206,8 @@ def parse_cov_from_file(filepath):
 def parse_overall_acc_from_file(filepath):
     roi = get_roi(filepath)
 
-    useful = roi['L2C']['prefetch useful'] + roi['LLC']['pf_useful_at_llc_from_l2']
-    useless = roi['L2C']['prefetch useless'] + roi['LLC']['pf_useless_at_llc_from_l2']
+    useful = roi['cpu0_L2C']['prefetch useful'] + roi['LLC']['pf_useful_at_llc_from_l2']
+    useless = roi['cpu0_L2C']['prefetch useless'] + roi['LLC']['pf_useless_at_llc_from_l2']
     if useful is None or useless is None:
         return None
 
