@@ -84,8 +84,8 @@ def _results_graph_subdir(benchmark_type):
     }.get(benchmark_type, 'spec2017')
 
 _SUBDIR = _results_graph_subdir(BENCHMARK_TYPE)
-RESULTS_ROOT = os.path.join(_REPO_ROOT, 'results', _SUBDIR)
-GRAPH_DIR = os.path.join(_REPO_ROOT, 'graphs', _SUBDIR)
+RESULTS_ROOT = os.path.join(_REPO_ROOT, 'results_jacky', _SUBDIR)
+GRAPH_DIR = os.path.join(_REPO_ROOT, 'graphs_jacky', _SUBDIR)
 
 # Directory names under results/<_SUBDIR>/ (per-benchmark ChampSim logs: .txt with JSON ROI, or .json).
 BASELINE = 'ip_stride-no'
@@ -985,10 +985,10 @@ def main():
     dram_data = gather_data(parse_dram_from_file, 'dram')
     
     print("Gathering coverage data...")
-    cov_data = gather_data(parse_cov_from_file, 'coverage')
+    cov_data = gather_data(parse_llc_cov_from_file, 'coverage')
     
     print("Gathering accuracy data...")
-    acc_data = gather_data(parse_acc_from_file, 'accuracy')
+    acc_data = gather_data(parse_overall_acc_from_file, 'accuracy')
     
     # Compute geomean speedups for each metric
     print("--------------------------------")
@@ -1094,12 +1094,12 @@ def main():
                     f'{PLOT_NAME}_dram.{OUTPUT}', include_geomean=INCLUDE_GEOMEAN, include_baseline=True, ylim_bottom=0.9, only_geomean_bar=ONLY_GEOMEAN_BAR, only_geomean_line=ONLY_GEOMEAN_LINE, legend_position='top')
     
     print("Creating coverage plot...")
-    create_plot(cov_speedups, cov_plot_prefetchers, 'coverage', 'L1D Coverage', 
+    create_plot(cov_speedups, cov_plot_prefetchers, 'coverage', 'LLC Coverage', 
                 f'{PLOT_NAME}_coverage.{OUTPUT}', include_geomean=INCLUDE_GEOMEAN, include_baseline=False, 
                 ylim_bottom=0.0, only_geomean_bar=ONLY_GEOMEAN_BAR, legend_position='top')
     
     print("Creating accuracy plot...")
-    create_plot(acc_speedups, acc_plot_prefetchers, 'accuracy', 'Accuracy', 
+    create_plot(acc_speedups, acc_plot_prefetchers, 'accuracy', 'Overall Accuracy', 
                 f'{PLOT_NAME}_accuracy.{OUTPUT}', include_geomean=INCLUDE_GEOMEAN, include_baseline=False, 
                 ylim_bottom=0.0, ylim_top=1.0, only_geomean_bar=ONLY_GEOMEAN_BAR, legend_position='top')
     
