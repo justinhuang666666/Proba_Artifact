@@ -203,6 +203,16 @@ def parse_cov_from_file(filepath):
     except (KeyError, IndexError, TypeError, ValueError):
         return None
 
+def parse_overall_acc_from_file(filepath):
+    roi = get_roi(filepath)
+
+    useful = roi['L2C']['prefetch useful'] + roi['LLC']['pf_useful_at_llc_from_l2']
+    useless = roi['L2C']['prefetch useless'] + roi['LLC']['pf_useless_at_llc_from_l2']
+    if useful is None or useless is None:
+        return None
+
+    return float(useful), float(useless)
+
 def parse_acc_from_file(filepath):
     # Re-use the same helper logic as in parse_cov_from_file
 
@@ -948,7 +958,7 @@ def main():
     cov_data = gather_data(parse_cov_from_file, 'coverage')
     
     print("Gathering accuracy data...")
-    acc_data = gather_data(parse_acc_from_file, 'accuracy')
+    acc_data = gather_data(parse_overall_acc_from_file, 'accuracy')
 
     print("Gathering eog data...")
     eog_data = gather_data(parse_eog_from_file, 'eog')
