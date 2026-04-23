@@ -512,13 +512,25 @@ def compute_geomean_speedups(data, metric_type, baseline_name=None):
     plot_prefetchers = [p for p in display_prefetchers if p != baseline_name] if baseline_name else display_prefetchers
 
     for prefetcher in plot_prefetchers:
-        values = [geomean_speedups[prefetcher][bm] for bm in BENCHMARKS if geomean_speedups[prefetcher][bm] > 0]
-        if values:
-            log_sum = sum(math.log(v) for v in values)
-            overall_geo = math.exp(log_sum / len(values))
+        values = [
+            geomean_speedups[prefetcher][bm]
+            for bm in BENCHMARKS
+            if bm in geomean_speedups[prefetcher]
+        ]
+
+        if not values:
+            overall_value = 0.0
+        elif metric_type == 'accuracy' or metric_type == 'coverage' :
+            overall_value = sum(values) / len(values)   # arithmetic mean for accuracy
         else:
-            overall_geo = 0.0
-        geomean_speedups[prefetcher]["geomean"] = overall_geo
+            positive_values = [v for v in values if v > 0]
+            if positive_values:
+                log_sum = sum(math.log(v) for v in positive_values)
+                overall_value = math.exp(log_sum / len(positive_values))
+            else:
+                overall_value = 0.0
+
+        geomean_speedups[prefetcher]["geomean"] = overall_value
 
     return geomean_speedups, plot_prefetchers
 
