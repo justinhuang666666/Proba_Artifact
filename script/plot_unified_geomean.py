@@ -157,17 +157,20 @@ def _determine_cpu_str(path):
         # Single component prefetcher names like l2_bingo
         return 'cpu0_L2C'
 
-def parse_ipc_from_file(filepath):
+def parse_overcoverage_from_file(filepath):
     roi = get_roi(filepath)
 
     try:
-        instructions = roi['cores'][0]['instructions']
-        cycles = roi['cores'][0]['cycles']
-        if cycles == 0:
-            return None
+        llc_load_miss = roi['LLC']['LOAD']['miss']
+        llc_prefetch_miss = roi['LLC']['PREFETCH']['miss']
 
-        return instructions / cycles
-    except (KeyError, IndexError, TypeError, ZeroDivisionError):
+        if isinstance(llc_load_miss, list):
+            llc_load_miss = llc_load_miss[0]
+        if isinstance(llc_prefetch_miss, list):
+            llc_prefetch_miss = llc_prefetch_miss[0]
+
+        return float(llc_load_miss), float(llc_prefetch_miss)
+    except (KeyError, IndexError, TypeError, ValueError):
         return None
 
 def parse_dram_from_file(filepath):
@@ -199,13 +202,13 @@ def parse_cov_from_file(filepath):
 def parse_overcoverage_from_file(filepath):
     roi = get_roi(filepath)
 
-    try:
-        llc_load_prefetch_miss = roi['LLC']['LOAD']['miss']+roi['LLC']['PREFETCH']['miss']
-        if isinstance(llc_load_prefetch_miss, list):
-            return float(llc_load_prefetch_miss[0])
-        return float(llc_load_prefetch_miss)
-    except (KeyError, IndexError, TypeError, ValueError):
-        return None  
+    llc_load_miss = roi['LLC']['LOAD']['miss']
+    llc_prefetch_miss = roi['LLC']['PREFETCH']['miss']
+
+    if llc_load_miss is None or llc_prefetch_miss is None:
+        return None
+
+    return float(llc_load_miss), float(llc_prefetch_miss)
 
 
 def parse_overall_acc_from_file(filepath):
@@ -424,8 +427,8 @@ def compute_geomean_speedups(data, metric_type, baseline_name=None):
             weighted_base_llc_load_miss = 0.0
             weighted_test_llc_load_miss = 0.0
 
-            weighted_base_llc_load_prefetch_miss = 0.0
-            weighted_test_llc_load_prefetch_miss = 0.0
+            weighted_base_llc_prefetch_miss = 0.0
+            weighted_test_llc_prefetch_miss = 0.0
 
             weighted_useful = 0.0
             weighted_useless = 0.0
@@ -465,11 +468,17 @@ def compute_geomean_speedups(data, metric_type, baseline_name=None):
                         weighted_test_llc_load_miss += weight * test_value
 
                 elif metric_type == 'overcoverage':
-                    base_value = data[baseline_name].get(label) if baseline_name else None
-                    test_value = data[prefetcher].get(label)
-                    if base_value is not None and test_value is not None:
-                        weighted_base_llc_load_prefetch_miss += weight * base_value
-                        weighted_test_llc_load_prefetch_miss += weight * test_value
+                    base_data = data[baseline_name].get(label) if baseline_name else None
+                    test_data = data[prefetcher].get(label)
+
+                    if base_data is not None and test_data is not None:
+                        base_llc_load_miss, base_llc_prefetch_miss = base_data
+                        test_llc_load_miss, test_llc_prefetch_miss = test_data
+
+                        weighted_base_llc_load_miss += weight * base_llc_load_miss
+                        weighted_test_llc_load_miss += weight * test_llc_load_miss
+                        weighted_base_llc_prefetch_miss += weight * base_llc_prefetch_miss
+                        weighted_test_llc_prefetch_miss += weight * test_llc_prefetch_miss
 
                 elif metric_type == 'accuracy':
                     acc_data = data[prefetcher].get(label)
@@ -512,8 +521,11 @@ def compute_geomean_speedups(data, metric_type, baseline_name=None):
                     geomean_speedups[prefetcher][benchmark] = 0.0
 
             elif metric_type == 'overcoverage':
-                if weighted_base_llc_load_prefetch_miss > 0:
-                    geomean_speedups[prefetcher][benchmark] = (weighted_test_llc_load_prefetch_miss - weighted_base_llc_load_prefetch_miss) / weighted_base_llc_load_prefetch_miss
+                if weighted_base_llc_load_miss > 0:
+                    covered_misses = weighted_base_llc_load_miss - weighted_test_llc_load_miss
+                    delta_prefetch_misses = weighted_test_llc_prefetch_miss - weighted_base_llc_prefetch_miss
+                    over = max(0.0, delta_prefetch_misses - covered_misses)
+                    geomean_speedups[prefetcher][benchmark] = over / weighted_base_llc_load_miss
                 else:
                     geomean_speedups[prefetcher][benchmark] = 0.0
 
