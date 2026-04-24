@@ -945,7 +945,7 @@ def main():
     acc_data = gather_data(parse_overall_acc_from_file, 'accuracy')
 
     print("Gathering eog data...")
-    acc_data = gather_data(parse_eog_from_file, 'accuracy')
+    eog_data = gather_data(parse_eog_from_file, 'accuracy')
     
     # Compute geomean speedups for each metric
     print("--------------------------------")
@@ -993,7 +993,7 @@ def main():
         print(f"> {prefetcher}: {acc_speedups[prefetcher].get('geomean', 0.0)}")
     print("--------------------------------")
 
-    eog_speedups, eog_plot_prefetchers = compute_geomean_speedups(acc_data, 'eog', BASELINE)
+    eog_speedups, eog_plot_prefetchers = compute_geomean_speedups(eog_data, 'eog', BASELINE)
 
     # Print benchmark statistics in CSV format if enabled
     if PRINT_BENCH_STATS:
@@ -1013,7 +1013,7 @@ def main():
         export_benchmark_stats_data(dram_speedups, dram_plot_prefetchers, 'dram', f'{PLOT_NAME}_dram.data')
         export_benchmark_stats_data(cov_speedups, cov_plot_prefetchers, 'coverage', f'{PLOT_NAME}_coverage.data')
         export_benchmark_stats_data(acc_speedups, acc_plot_prefetchers, 'accuracy', f'{PLOT_NAME}_accuracy.data')
-        export_benchmark_stats_data(eog_speedups, acc_plot_prefetchers, 'eog', f'{PLOT_NAME}_eog.data')
+        export_benchmark_stats_data(eog_speedups, eog_plot_prefetchers, 'eog', f'{PLOT_NAME}_eog.data')
 
 
     # # Create all plots
