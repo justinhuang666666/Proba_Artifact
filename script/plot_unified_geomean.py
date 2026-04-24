@@ -1126,6 +1126,11 @@ def main():
                 f'{PLOT_NAME}_accuracy.{OUTPUT}', include_geomean=INCLUDE_GEOMEAN, include_baseline=False, 
                 ylim_bottom=0.0, ylim_top=1.0, only_geomean_bar=ONLY_GEOMEAN_BAR, legend_position='top')
     
+    print("Creating overcoverage plot...")
+    create_plot(overcoverage_speedups, overcoverage_plot_prefetchers, 'overcoverage', 'Overcoverage', 
+                f'{PLOT_NAME}_overcoverage.{OUTPUT}', include_geomean=INCLUDE_GEOMEAN, include_baseline=False, 
+                ylim_bottom=0.0, ylim_top=1.0, only_geomean_bar=ONLY_GEOMEAN_BAR, legend_position='top')
+    
     print("All plots created successfully!")
 
     print("Exporting .data files...")
@@ -1133,6 +1138,7 @@ def main():
     export_data_file(dram_speedups, dram_plot_prefetchers, f'{PLOT_NAME}_dram.data')
     export_data_file(cov_speedups, cov_plot_prefetchers, f'{PLOT_NAME}_coverage.data')
     export_data_file(acc_speedups, acc_plot_prefetchers, f'{PLOT_NAME}_accuracy.data')
+    export_data_file(overcoverage_speedups, overcoverage_plot_prefetchers, f'{PLOT_NAME}_overcoverage.data')
     export_data_file(eog_speedups, eog_plot_prefetchers, f'{PLOT_NAME}_eog.data')
 
 if __name__ == "__main__":
