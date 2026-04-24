@@ -633,33 +633,6 @@ def setup_plot_style():
         'legend.fontsize': 12
     })
 
-def print_benchmark_stats_csv(geomean_speedups, plot_prefetchers, metric_name):
-    """Print per-benchmark statistics in CSV format"""
-    print(f"\n{metric_name.upper()} Benchmark Statistics (CSV):")
-    
-    # Print header
-    # header = "# " + ", ".join(plot_prefetchers)
-    header = "# " + " ".join(plot_prefetchers)
-    print(header)
-    
-    # Print each benchmark
-    for benchmark in BENCHMARKS:
-        values = []
-        for prefetcher in plot_prefetchers:
-            value = geomean_speedups[prefetcher].get(benchmark, 0.0)
-            values.append(f"{value:.4f}")
-        # For SPEC benchmarks, optionally omit last 3 characters when printing
-        bench_display = benchmark[:-3] if (TRUNCATE_SPEC_BENCH_NAMES and BENCHMARK_TYPE in ('SPEC2017', 'SPEC2006', 'SPEC_ALL')) else benchmark
-        print(f"{bench_display} " + " ".join(values))
-    
-    # Print geomean row
-    geomean_values = []
-    for prefetcher in plot_prefetchers:
-        value = geomean_speedups[prefetcher].get("geomean", 0.0)
-        geomean_values.append(f"{value:.4f}")
-    print(f"geomean " + " ".join(geomean_values))
-
-
 def get_display_name(prefetcher):
     if prefetcher == 'ip_stride-l2_sms':
         return 'SMS'
@@ -673,100 +646,81 @@ def get_display_name(prefetcher):
         return 'Gaze'
     elif prefetcher == 'ip_stride-l2_superproba_pc_pcoffset_offsetoffset':
         return 'SuperProba'
-    
+
     return prefetcher
 
 
-def benchmark_to_data_name(benchmark):
-    mapped = BENCHMARK_SHORTCODE.get(benchmark)
+def print_benchmark_stats_csv(geomean_speedups, plot_prefetchers, metric_name):
+    """Print per-benchmark statistics in CSV format"""
+    print(f"\n{metric_name.upper()} Benchmark Statistics (CSV):")
 
-    name = None
+    display_prefetchers = [get_display_name(p) for p in plot_prefetchers]
+    header = "# " + " ".join(display_prefetchers)
+    print(header)
 
-    # SPEC maps to a list of traces in your setup
-    if isinstance(mapped, list) and mapped:
-        first_trace = os.path.basename(mapped[0])
-        m = re.match(r'^\d+\.([^-]+)', first_trace)
-        if m:
-            name = m.group(1)
+    for benchmark in BENCHMARKS:
+        values = []
+        for prefetcher in plot_prefetchers:
+            value = geomean_speedups[prefetcher].get(benchmark, 0.0)
+            values.append(f"{value:.4f}")
 
-    # GAP or other string shortcode maps
-    elif isinstance(mapped, str):
-        name = mapped
+        bench_display = (
+            benchmark[:-3] if (TRUNCATE_SPEC_BENCH_NAMES and BENCHMARK_TYPE in ('SPEC2017', 'SPEC2006', 'SPEC_ALL'))
+            else benchmark[len('ligra_'):] if (BENCHMARK_TYPE == 'LIGRA' and benchmark.startswith('ligra_'))
+            else benchmark[len('parsec_'):] if (BENCHMARK_TYPE == 'PARSEC' and benchmark.startswith('parsec_'))
+            else benchmark
+        )
 
-    # fallback from benchmark key itself, e.g. astar473 -> astar
-    if name is None:
-        m = re.match(r'^([A-Za-z_][A-Za-z0-9_]*?)(\d+)$', benchmark)
-        if m:
-            name = m.group(1)
-        else:
-            name = benchmark
+        print(f"{bench_display} " + " ".join(values))
 
-    # normalize SPEC2017 suffix/style
-    name = re.sub(r'_s$', '', name)
+    geomean_values = []
+    for prefetcher in plot_prefetchers:
+        value = geomean_speedups[prefetcher].get("geomean", 0.0)
+        geomean_values.append(f"{value:.4f}")
 
-    alias = {
-        'perlbench': 'perlbench',
-        'perlbench_s': 'perlbench',
-        'bzip2': 'bzip2',
-        'gcc': 'gcc',
-        'gcc_s': 'gcc',
-        'bwaves': 'bwaves',
-        'bwaves_s': 'bwaves',
-        'mcf': 'mcf',
-        'mcf_s': 'mcf',
-        'cactusADM': 'cactus',
-        'cactuBSSN_s': 'cactus',
-        'cactuBSSN': 'cactus',
-        'leslie3d': 'leslie3d',
-        'dealII': 'dealII',
-        'GemsFDTD': 'gems',
-        'h264ref': 'h264',
-        'sphinx3': 'sphinx',
-        'omnetpp': 'omnet',
-        'omnetpp_s': 'omnet',
-        'xalancbmk': 'xalan',
-        'xalancbmk_s': 'xalan',
-        'deepsjeng': 'sjeng',
-        'deepsjeng_s': 'sjeng',
-        'exchange2_s': 'exchange2',
-        'cam4_s': 'cam4',
-        'pop2_s': 'pop2',
-        'imagick_s': 'imagick',
-        'leela_s': 'leela',
-        'nab_s': 'nab',
-        'fotonik3d_s': 'fotonik3d',
-        'roms_s': 'roms',
-        'xz_s': 'xz',
-    }
+    if metric_name == 'accuracy' or metric_name == 'coverage':
+        print(f"average " + " ".join(geomean_values))
+    else:
+        print(f"geomean " + " ".join(geomean_values))
 
-    return alias.get(name, name)
 
-def export_data_file(metric_values, plot_prefetchers, out_filename):
+def export_benchmark_stats_data(geomean_speedups, plot_prefetchers, metric_name, out_filename):
+    """Export per-benchmark statistics in the same format as print_benchmark_stats_csv."""
     if not os.path.exists(GRAPH_DIR):
         os.makedirs(GRAPH_DIR)
 
     out_path = os.path.join(GRAPH_DIR, out_filename)
-    display_prefetchers = [get_display_name(p) for p in plot_prefetchers]
 
     with open(out_path, 'w') as f:
-        f.write("#\t" + "\t".join(display_prefetchers) + "\n")
+        display_prefetchers = [get_display_name(p) for p in plot_prefetchers]
+        header = "# " + " ".join(display_prefetchers)
+        f.write(header + "\n")
 
         for benchmark in BENCHMARKS:
-            bench_name = benchmark_to_data_name(benchmark)
-            vals = [metric_values[p].get(benchmark, 0.0) for p in plot_prefetchers]
-            f.write(
-                f"{bench_name}\t" +
-                "\t".join(f"{v:.9f}".rstrip('0').rstrip('.') for v in vals) +
-                "\n"
+            values = []
+            for prefetcher in plot_prefetchers:
+                value = geomean_speedups[prefetcher].get(benchmark, 0.0)
+                values.append(f"{value:.4f}")
+
+            bench_display = (
+                benchmark[:-3] if (TRUNCATE_SPEC_BENCH_NAMES and BENCHMARK_TYPE in ('SPEC2017', 'SPEC2006', 'SPEC_ALL'))
+                else benchmark[len('ligra_'):] if (BENCHMARK_TYPE == 'LIGRA' and benchmark.startswith('ligra_'))
+                else benchmark[len('parsec_'):] if (BENCHMARK_TYPE == 'PARSEC' and benchmark.startswith('parsec_'))
+                else benchmark
             )
 
-        vals = [metric_values[p].get("geomean", 0.0) for p in plot_prefetchers]
-        f.write(
-            "geomean\t" +
-            "\t".join(f"{v:.9f}".rstrip('0').rstrip('.') for v in vals) +
-            "\n"
-        )
+            f.write(f"{bench_display} " + " ".join(values) + "\n")
 
+        geomean_values = []
+        for prefetcher in plot_prefetchers:
+            value = geomean_speedups[prefetcher].get("geomean", 0.0)
+            geomean_values.append(f"{value:.4f}")
+
+        if metric_name == 'accuracy' or metric_name == 'coverage':
+            f.write(f"average " + " ".join(geomean_values) + "\n")
+        else:
+            f.write(f"geomean " + " ".join(geomean_values) + "\n")
+            
 def create_plot(geomean_speedups, plot_prefetchers, metric_name, ylabel, filename, 
                 include_geomean=True, include_baseline=True, ylim_bottom=None, ylim_top=None, 
                 legend_position='right', only_geomean_bar=False, only_geomean_line=False, 
