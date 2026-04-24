@@ -245,6 +245,22 @@ def parse_llc_cov_from_file(filepath):
     except (KeyError, IndexError, TypeError, ValueError):
         return None
 
+def parse_overcoverage_from_file(filepath):
+    roi = get_roi(filepath)
+
+    try:
+        llc_load_miss = roi['LLC']['LOAD']['miss']
+        llc_prefetch_miss = roi['LLC']['PREFETCH']['miss']
+
+        if isinstance(llc_load_miss, list):
+            llc_load_miss = llc_load_miss[0]
+        if isinstance(llc_prefetch_miss, list):
+            llc_prefetch_miss = llc_prefetch_miss[0]
+
+        return float(llc_load_miss), float(llc_prefetch_miss)
+    except (KeyError, IndexError, TypeError, ValueError):
+        return None
+
 
 def parse_acc_from_file(filepath):
     cpu_str = _determine_cpu_str(filepath)
@@ -438,7 +454,7 @@ def compute_geomean_speedups(data, metric_type, baseline_name=None):
 
         display_prefetchers = []
         for p in PREFETCHERS:
-            if p == baseline_name and metric_type in ['coverage', 'accuracy']:
+            if p == baseline_name and metric_type in ['coverage', 'accuracy','overcoverage']:
                 continue
             else:
                 display_prefetchers.append(p)
@@ -455,6 +471,9 @@ def compute_geomean_speedups(data, metric_type, baseline_name=None):
 
             weighted_base_llc_load_miss = 0.0
             weighted_test_llc_load_miss = 0.0
+
+            weighted_base_llc_prefetch_miss = 0.0
+            weighted_test_llc_prefetch_miss = 0.0
 
             weighted_useful = 0.0
             weighted_useless = 0.0
@@ -492,6 +511,19 @@ def compute_geomean_speedups(data, metric_type, baseline_name=None):
                     if base_value is not None and test_value is not None:
                         weighted_base_llc_load_miss += weight * base_value
                         weighted_test_llc_load_miss += weight * test_value
+
+                elif metric_type == 'overcoverage':
+                    base_data = data[baseline_name].get(label) if baseline_name else None
+                    test_data = data[prefetcher].get(label)
+
+                    if base_data is not None and test_data is not None:
+                        base_llc_load_miss, base_llc_prefetch_miss = base_data
+                        test_llc_load_miss, test_llc_prefetch_miss = test_data
+
+                        weighted_base_llc_load_miss += weight * base_llc_load_miss
+                        weighted_test_llc_load_miss += weight * test_llc_load_miss
+                        weighted_base_llc_prefetch_miss += weight * base_llc_prefetch_miss
+                        weighted_test_llc_prefetch_miss += weight * test_llc_prefetch_miss
 
                 elif metric_type == 'accuracy':
                     acc_data = data[prefetcher].get(label)
@@ -533,6 +565,15 @@ def compute_geomean_speedups(data, metric_type, baseline_name=None):
                 else:
                     geomean_speedups[prefetcher][benchmark] = 0.0
 
+            elif metric_type == 'overcoverage':
+                if weighted_base_llc_load_miss > 0:
+                    covered_misses = weighted_base_llc_load_miss - weighted_test_llc_load_miss
+                    delta_prefetch_misses = weighted_test_llc_prefetch_miss - weighted_base_llc_prefetch_miss
+                    over = max(0.0, delta_prefetch_misses - covered_misses)
+                    geomean_speedups[prefetcher][benchmark] = over / weighted_base_llc_load_miss
+                else:
+                    geomean_speedups[prefetcher][benchmark] = 0.0
+
             elif metric_type == 'accuracy':
                 denom = weighted_useful + weighted_useless
                 if denom > 0:
@@ -557,7 +598,7 @@ def compute_geomean_speedups(data, metric_type, baseline_name=None):
 
         if not values:
             overall_value = 0.0
-        elif metric_type in ['accuracy', 'coverage', 'eog']:
+        elif metric_type in ['accuracy', 'coverage', 'eog', 'overoverage']:
             overall_value = sum(values) / len(values)
         else:
             positive_values = [v for v in values if v > 0]
@@ -944,6 +985,9 @@ def main():
     print("Gathering accuracy data...")
     acc_data = gather_data(parse_overall_acc_from_file, 'accuracy')
 
+    print("Gathering overcoverage data...")
+    overcoverage_data = gather_data(parse_overcoverage_from_file, 'overcoverage')
+
     print("Gathering eog data...")
     eog_data = gather_data(parse_eog_from_file, 'accuracy')
     
@@ -980,7 +1024,7 @@ def main():
     print("Computing coverage...")
     cov_speedups, cov_plot_prefetchers = compute_geomean_speedups(cov_data, 'coverage', BASELINE)
     # print("Coverage values:", dict(cov_speedups))
-    print("Geomean coverage:")
+    print("Average coverage:")
     for prefetcher in cov_plot_prefetchers:
         print(f"> {prefetcher}: {cov_speedups[prefetcher].get('geomean', 0.0)}")
     print("--------------------------------")
@@ -988,9 +1032,17 @@ def main():
     print("Computing accuracy...")
     acc_speedups, acc_plot_prefetchers = compute_geomean_speedups(acc_data, 'accuracy', BASELINE)
     # print("Accuracy values:", dict(acc_speedups))
-    print("Geomean accuracy:")
+    print("Average accuracy:")
     for prefetcher in acc_plot_prefetchers:
         print(f"> {prefetcher}: {acc_speedups[prefetcher].get('geomean', 0.0)}")
+    print("--------------------------------")
+
+    print("Computing overcoverage...")
+    overcoverage_speedups, overcoverage_plot_prefetchers = compute_geomean_speedups(overcoverage_data, 'overcoverage', BASELINE)
+    # print("Accuracy values:", dict(acc_speedups))
+    print("Average overcoverage:")
+    for prefetcher in overcoverage_plot_prefetchers:
+        print(f"> {prefetcher}: {overcoverage_speedups[prefetcher].get('geomean', 0.0)}")
     print("--------------------------------")
 
     eog_speedups, eog_plot_prefetchers = compute_geomean_speedups(eog_data, 'eog', BASELINE)
@@ -1004,6 +1056,7 @@ def main():
         print_benchmark_stats_csv(dram_speedups, dram_plot_prefetchers, 'dram')
         print_benchmark_stats_csv(cov_speedups, cov_plot_prefetchers, 'coverage')
         print_benchmark_stats_csv(acc_speedups, acc_plot_prefetchers, 'accuracy')
+        print_benchmark_stats_csv(overcoverage_speedups, overcoverage_plot_prefetchers, 'overcoverage')
         print("="*80 + "\n")
 
     # Export benchmark statistics in data format if enabled
@@ -1013,6 +1066,7 @@ def main():
         export_benchmark_stats_data(dram_speedups, dram_plot_prefetchers, 'dram', f'{PLOT_NAME}_dram.data')
         export_benchmark_stats_data(cov_speedups, cov_plot_prefetchers, 'coverage', f'{PLOT_NAME}_coverage.data')
         export_benchmark_stats_data(acc_speedups, acc_plot_prefetchers, 'accuracy', f'{PLOT_NAME}_accuracy.data')
+        export_benchmark_stats_data(overcoverage_speedups, overcoverage_plot_prefetchers, 'overcoverage', f'{PLOT_NAME}_overcoverage.data')
         export_benchmark_stats_data(eog_speedups, eog_plot_prefetchers, 'eog', f'{PLOT_NAME}_eog.data')
 
 
@@ -1071,7 +1125,12 @@ def main():
     create_plot(acc_speedups, acc_plot_prefetchers, 'accuracy', 'Overall Accuracy', 
                 f'{PLOT_NAME}_accuracy.{OUTPUT}', include_geomean=INCLUDE_GEOMEAN, include_baseline=False, 
                 ylim_bottom=0.0, ylim_top=1.0, only_geomean_bar=ONLY_GEOMEAN_BAR, legend_position='top')
-    
+
+    print("Creating overcoverage plot...")
+    create_plot(overcoverage_speedups, overcoverage_plot_prefetchers, 'overcoverage', 'Overcoverage', 
+                f'{PLOT_NAME}_overcoverage.{OUTPUT}', include_geomean=INCLUDE_GEOMEAN, include_baseline=False, 
+                ylim_bottom=0.0, ylim_top=1.0, only_geomean_bar=ONLY_GEOMEAN_BAR, legend_position='top')
+      
     print("All plots created successfully!")
 
 if __name__ == "__main__":

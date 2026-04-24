@@ -555,7 +555,7 @@ def compute_geomean_speedups(data, metric_type, baseline_name=None):
 
         if not values:
             overall_value = 0.0
-        elif metric_type == 'accuracy' or metric_type == 'coverage' or metric_type == 'overcoverage' :
+        elif metric_type == 'accuracy' or metric_type == 'coverage' or metric_type == 'eog' or metric_type == 'overcoverage':
             overall_value = sum(values) / len(values)   # arithmetic mean for accuracy
         else:
             positive_values = [v for v in values if v > 0]
