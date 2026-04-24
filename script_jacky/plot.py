@@ -684,44 +684,34 @@ def print_benchmark_stats_csv(geomean_speedups, plot_prefetchers, metric_name):
     else:
         print(f"geomean " + " ".join(geomean_values))
 
-
 def export_benchmark_stats_data(geomean_speedups, plot_prefetchers, metric_name, out_filename):
-    """Export per-benchmark statistics in the same format as print_benchmark_stats_csv."""
+    """Export per-benchmark statistics in the same .data format as export_data_file()."""
     if not os.path.exists(GRAPH_DIR):
         os.makedirs(GRAPH_DIR)
 
     out_path = os.path.join(GRAPH_DIR, out_filename)
+    display_prefetchers = [get_display_name(p) for p in plot_prefetchers]
 
     with open(out_path, 'w') as f:
-        display_prefetchers = [get_display_name(p) for p in plot_prefetchers]
-        header = "# " + " ".join(display_prefetchers)
-        f.write(header + "\n")
+        f.write("#\t" + "\t".join(display_prefetchers) + "\n")
 
         for benchmark in BENCHMARKS:
-            values = []
-            for prefetcher in plot_prefetchers:
-                value = geomean_speedups[prefetcher].get(benchmark, 0.0)
-                values.append(f"{value:.4f}")
-
-            bench_display = (
-                benchmark[:-3] if (TRUNCATE_SPEC_BENCH_NAMES and BENCHMARK_TYPE in ('SPEC2017', 'SPEC2006', 'SPEC_ALL'))
-                else benchmark[len('ligra_'):] if (BENCHMARK_TYPE == 'LIGRA' and benchmark.startswith('ligra_'))
-                else benchmark[len('parsec_'):] if (BENCHMARK_TYPE == 'PARSEC' and benchmark.startswith('parsec_'))
-                else benchmark
+            bench_name = benchmark_to_data_name(benchmark)
+            vals = [geomean_speedups[p].get(benchmark, 0.0) for p in plot_prefetchers]
+            f.write(
+                f"{bench_name}\t" +
+                "\t".join(f"{v:.9f}".rstrip('0').rstrip('.') for v in vals) +
+                "\n"
             )
 
-            f.write(f"{bench_display} " + " ".join(values) + "\n")
-
-        geomean_values = []
-        for prefetcher in plot_prefetchers:
-            value = geomean_speedups[prefetcher].get("geomean", 0.0)
-            geomean_values.append(f"{value:.4f}")
-
-        if metric_name == 'accuracy' or metric_name == 'coverage':
-            f.write(f"average " + " ".join(geomean_values) + "\n")
-        else:
-            f.write(f"geomean " + " ".join(geomean_values) + "\n")
-
+        row_name = "average" if metric_name in ("accuracy", "coverage", "eog") else "geomean"
+        vals = [geomean_speedups[p].get("geomean", 0.0) for p in plot_prefetchers]
+        f.write(
+            f"{row_name}\t" +
+            "\t".join(f"{v:.9f}".rstrip('0').rstrip('.') for v in vals) +
+            "\n"
+        )
+        
 def create_plot(geomean_speedups, plot_prefetchers, metric_name, ylabel, filename, 
                 include_geomean=True, include_baseline=True, ylim_bottom=None, ylim_top=None, 
                 legend_position='right', only_geomean_bar=False, only_geomean_line=False, 
@@ -1009,15 +999,13 @@ def main():
 
     # Export benchmark statistics in data format if enabled
     if EXPORT_BENCH_STATS:
-        print("\n" + "="*80)
         print("EXPORT DATA")
-        print("="*80)
         export_benchmark_stats_data(ipc_speedups, ipc_plot_prefetchers, 'ipc', f'{PLOT_NAME}_ipc.data')
         export_benchmark_stats_data(dram_speedups, dram_plot_prefetchers, 'dram', f'{PLOT_NAME}_dram.data')
         export_benchmark_stats_data(cov_speedups, cov_plot_prefetchers, 'coverage', f'{PLOT_NAME}_coverage.data')
         export_benchmark_stats_data(acc_speedups, acc_plot_prefetchers, 'accuracy', f'{PLOT_NAME}_accuracy.data')
         export_benchmark_stats_data(eog_speedups, acc_plot_prefetchers, 'eog', f'{PLOT_NAME}_eog.data')
-        print("="*80 + "\n")
+
 
     # # Create all plots
     # print("Creating IPC plot...")
