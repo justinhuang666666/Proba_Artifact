@@ -1008,15 +1008,15 @@ def main():
         print("="*80 + "\n")
 
     # Export benchmark statistics in data format if enabled
-    if PRINT_BENCH_STATS:
+    if EXPORT_BENCH_STATS:
         print("\n" + "="*80)
         print("EXPORT DATA")
         print("="*80)
-        export_benchmark_stats_data(ipc_speedups, ipc_plot_prefetchers, 'ipc')
-        export_benchmark_stats_data(dram_speedups, dram_plot_prefetchers, 'dram')
-        export_benchmark_stats_data(cov_speedups, cov_plot_prefetchers, 'coverage')
-        export_benchmark_stats_data(acc_speedups, acc_plot_prefetchers, 'accuracy')
-        export_benchmark_stats_data(eog_speedups, acc_plot_prefetchers, 'eog')
+        export_benchmark_stats_data(ipc_speedups, ipc_plot_prefetchers, 'ipc', f'{PLOT_NAME}_ipc.data')
+        export_benchmark_stats_data(dram_speedups, dram_plot_prefetchers, 'dram', f'{PLOT_NAME}_dram.data')
+        export_benchmark_stats_data(cov_speedups, cov_plot_prefetchers, 'coverage', f'{PLOT_NAME}_coverage.data')
+        export_benchmark_stats_data(acc_speedups, acc_plot_prefetchers, 'accuracy', f'{PLOT_NAME}_accuracy.data')
+        export_benchmark_stats_data(eog_speedups, acc_plot_prefetchers, 'eog', f'{PLOT_NAME}_eog.data')
         print("="*80 + "\n")
 
     # # Create all plots
