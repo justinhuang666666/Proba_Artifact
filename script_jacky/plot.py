@@ -87,7 +87,7 @@ def _results_graph_subdir(benchmark_type):
 _SUBDIR = _results_graph_subdir(BENCHMARK_TYPE)
 RESULTS_ROOT = os.path.join(_REPO_ROOT, 'results_jacky', _SUBDIR)
 GRAPH_DIR = os.path.join(_REPO_ROOT, 'graphs_jacky', _SUBDIR)
-
+DATA_DIR = os.path.join(_REPO_ROOT, 'datas_jacky', _SUBDIR)
 # Directory names under results/<_SUBDIR>/ (per-benchmark ChampSim logs: .txt with JSON ROI, or .json).
 BASELINE = 'ip_stride-no'
 # List every run directory to compare (e.g. 'spectra-no' once it has <benchmark>/ dirs).
@@ -686,10 +686,10 @@ def print_benchmark_stats_csv(geomean_speedups, plot_prefetchers, metric_name):
 
 def export_benchmark_stats_data(geomean_speedups, plot_prefetchers, metric_name, out_filename):
     """Export per-benchmark statistics in the same format as print_benchmark_stats_csv."""
-    if not os.path.exists(GRAPH_DIR):
-        os.makedirs(GRAPH_DIR)
+    if not os.path.exists(DATA_DIR):
+        os.makedirs(DATA_DIR)
 
-    out_path = os.path.join(GRAPH_DIR, out_filename)
+    out_path = os.path.join(DATA_DIR, out_filename)
 
     with open(out_path, 'w') as f:
         display_prefetchers = [get_display_name(p) for p in plot_prefetchers]
