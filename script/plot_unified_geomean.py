@@ -157,20 +157,17 @@ def _determine_cpu_str(path):
         # Single component prefetcher names like l2_bingo
         return 'cpu0_L2C'
 
-def parse_overcoverage_from_file(filepath):
+def parse_ipc_from_file(filepath):
     roi = get_roi(filepath)
 
     try:
-        llc_load_miss = roi['LLC']['LOAD']['miss']
-        llc_prefetch_miss = roi['LLC']['PREFETCH']['miss']
+        instructions = roi['cores'][0]['instructions']
+        cycles = roi['cores'][0]['cycles']
+        if cycles == 0:
+            return None
 
-        if isinstance(llc_load_miss, list):
-            llc_load_miss = llc_load_miss[0]
-        if isinstance(llc_prefetch_miss, list):
-            llc_prefetch_miss = llc_prefetch_miss[0]
-
-        return float(llc_load_miss), float(llc_prefetch_miss)
-    except (KeyError, IndexError, TypeError, ValueError):
+        return instructions / cycles
+    except (KeyError, IndexError, TypeError, ZeroDivisionError):
         return None
 
 def parse_dram_from_file(filepath):
@@ -202,13 +199,18 @@ def parse_cov_from_file(filepath):
 def parse_overcoverage_from_file(filepath):
     roi = get_roi(filepath)
 
-    llc_load_miss = roi['LLC']['LOAD']['miss']
-    llc_prefetch_miss = roi['LLC']['PREFETCH']['miss']
+    try:
+        llc_load_miss = roi['LLC']['LOAD']['miss']
+        llc_prefetch_miss = roi['LLC']['PREFETCH']['miss']
 
-    if llc_load_miss is None or llc_prefetch_miss is None:
+        if isinstance(llc_load_miss, list):
+            llc_load_miss = llc_load_miss[0]
+        if isinstance(llc_prefetch_miss, list):
+            llc_prefetch_miss = llc_prefetch_miss[0]
+
+        return float(llc_load_miss), float(llc_prefetch_miss)
+    except (KeyError, IndexError, TypeError, ValueError):
         return None
-
-    return float(llc_load_miss), float(llc_prefetch_miss)
 
 
 def parse_overall_acc_from_file(filepath):
