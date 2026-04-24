@@ -25,7 +25,8 @@ _REPO_ROOT = os.path.abspath(os.path.join(_SCRIPT_DIR, '..'))
 OUTPUT = "png"  # Use PNG for PowerPoint compatibility
 PLOT_NAME = 'proba'
 
-PRINT_BENCH_STATS = True
+EXPORT_BENCH_STATS = True
+PRINT_BENCH_STATS = False
 TRUNCATE_SPEC_BENCH_NAMES = True  # Omit last 3 chars when printing bench stats (SPEC only)
 
 # --- IPC MEAN TYPE SELECTION ---
@@ -556,7 +557,7 @@ def compute_geomean_speedups(data, metric_type, baseline_name=None):
 
         if not values:
             overall_value = 0.0
-        elif metric_type in ['accuracy', 'coverage']:
+        elif metric_type in ['accuracy', 'coverage', 'eog']:
             overall_value = sum(values) / len(values)
         else:
             positive_values = [v for v in values if v > 0]
@@ -678,7 +679,7 @@ def print_benchmark_stats_csv(geomean_speedups, plot_prefetchers, metric_name):
         value = geomean_speedups[prefetcher].get("geomean", 0.0)
         geomean_values.append(f"{value:.4f}")
 
-    if metric_name == 'accuracy' or metric_name == 'coverage':
+    if metric_name == 'accuracy' or metric_name == 'coverage' or metric_name == 'eog':
         print(f"average " + " ".join(geomean_values))
     else:
         print(f"geomean " + " ".join(geomean_values))
@@ -720,7 +721,7 @@ def export_benchmark_stats_data(geomean_speedups, plot_prefetchers, metric_name,
             f.write(f"average " + " ".join(geomean_values) + "\n")
         else:
             f.write(f"geomean " + " ".join(geomean_values) + "\n")
-            
+
 def create_plot(geomean_speedups, plot_prefetchers, metric_name, ylabel, filename, 
                 include_geomean=True, include_baseline=True, ylim_bottom=None, ylim_top=None, 
                 legend_position='right', only_geomean_bar=False, only_geomean_line=False, 
@@ -943,6 +944,9 @@ def main():
     
     print("Gathering accuracy data...")
     acc_data = gather_data(parse_overall_acc_from_file, 'accuracy')
+
+    print("Gathering eog data...")
+    acc_data = gather_data(parse_eog_from_file, 'accuracy')
     
     # Compute geomean speedups for each metric
     print("--------------------------------")
@@ -990,6 +994,8 @@ def main():
         print(f"> {prefetcher}: {acc_speedups[prefetcher].get('geomean', 0.0)}")
     print("--------------------------------")
 
+    eog_speedups, eog_plot_prefetchers = compute_geomean_speedups(acc_data, 'eog', BASELINE)
+
     # Print benchmark statistics in CSV format if enabled
     if PRINT_BENCH_STATS:
         print("\n" + "="*80)
@@ -999,6 +1005,18 @@ def main():
         print_benchmark_stats_csv(dram_speedups, dram_plot_prefetchers, 'dram')
         print_benchmark_stats_csv(cov_speedups, cov_plot_prefetchers, 'coverage')
         print_benchmark_stats_csv(acc_speedups, acc_plot_prefetchers, 'accuracy')
+        print("="*80 + "\n")
+
+    # Export benchmark statistics in data format if enabled
+    if PRINT_BENCH_STATS:
+        print("\n" + "="*80)
+        print("EXPORT DATA")
+        print("="*80)
+        export_benchmark_stats_data(ipc_speedups, ipc_plot_prefetchers, 'ipc')
+        export_benchmark_stats_data(dram_speedups, dram_plot_prefetchers, 'dram')
+        export_benchmark_stats_data(cov_speedups, cov_plot_prefetchers, 'coverage')
+        export_benchmark_stats_data(acc_speedups, acc_plot_prefetchers, 'accuracy')
+        export_benchmark_stats_data(eog_speedups, acc_plot_prefetchers, 'eog')
         print("="*80 + "\n")
 
     # # Create all plots
