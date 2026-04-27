@@ -131,7 +131,7 @@ def modify_config_multicore(num_cores, branch, prefetcher, name):
     if (num_cores not in [2, 4, 8, 16]):
         print('Wrong num_cores!')
         exit()
-    with open("./champsim_config.json", "r") as f:
+    with open("./champsim_multicore_config.json", "r") as f:
         load_dict = json.load(f)
 
     load_dict['ooo_cpu'][0]['branch_predictor'] = branch
@@ -140,6 +140,8 @@ def modify_config_multicore(num_cores, branch, prefetcher, name):
     load_dict['executable_name'] = name
 
     load_dict['L1D']['virtual_prefetch'] = True if prefetcher[0] == 'v' else False
+
+    load_dict['L2C']['prefetcher'] = prefetcher
 
     # LLC: 2 M/core, 16 ways
     load_dict['LLC']['wq_size'] = num_cores*load_dict['LLC']['wq_size']
@@ -165,7 +167,7 @@ def modify_config_multicore(num_cores, branch, prefetcher, name):
         load_dict['physical_memory']['ranks'] = 2
     # rq_size, wq_size are per channel parameterss
 
-    with open("./champsim_config_auto.json", "w") as f:
+    with open("./champsim_multicore_config_auto.json", "w") as f:
         json.dump(load_dict, f)
     pass
 
