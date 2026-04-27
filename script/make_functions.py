@@ -135,7 +135,7 @@ def modify_config_multicore(num_cores, branch, prefetcher, name):
         load_dict = json.load(f)
 
     load_dict['ooo_cpu'][0]['branch_predictor'] = branch
-    load_dict['L1D']['prefetcher'] = prefetcher[1:] if (prefetcher[0] == 'v') else prefetcher
+    load_dict['L1D']['prefetcher'] = 'ip_stride'
     load_dict['num_cores'] = num_cores
     load_dict['executable_name'] = name
 
@@ -172,6 +172,6 @@ def modify_config_multicore(num_cores, branch, prefetcher, name):
 
 def make_multicore(num_cores, prefetcher):
     name = 'champsim_' + str(num_cores) + 'core_' + prefetcher
-    modify_config_multicore(num_cores, 'hashed_perceptron', prefetcher, name)
-    os.system('./config.sh champsim_config_auto.json')
+    modify_config_multicore(num_cores, 'tage-sc-l', prefetcher, name)
+    os.system('./config.sh champsim_multicore_config_auto.json')
     os.system('make clean && make -j16')

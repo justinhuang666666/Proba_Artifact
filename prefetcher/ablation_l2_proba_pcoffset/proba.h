@@ -38,16 +38,16 @@ constexpr int NUM_BLOCKS = REGION_SIZE / BLOCK_SIZE;
 constexpr int AGT_SIZE = 64, AGT_WAY = 8;
 constexpr int FT_SIZE = 64, FT_WAY = 8;
 constexpr int PHT_WAY = 16;
-constexpr int PHT_SIZE = 256;
+constexpr int PHT_SIZE = 1024;
 constexpr int PB_SIZE = 32, PB_WAY = 8;
 constexpr int KEY_WIDTH = 16;
 constexpr int PROBA_HASH_TYPE = 2;
 constexpr int OFFSET_WIDTH = LOG2_REGION_SIZE - LOG2_BLOCK_SIZE;
 
-constexpr int JT_SIZE = 1024;
+constexpr int JT_SIZE = 4096;
 
-constexpr int ACCURACY_THRESHOLD = 60;
-constexpr int MARGINAL_ACCURACY_THRESHOLD = 60;
+constexpr int ACCURACY_THRESHOLD = 40;
+constexpr int MARGINAL_ACCURACY_THRESHOLD = 40;
 
 constexpr int PF_FILL_L1 = 1;
 constexpr int PF_FILL_L2 = 2;
@@ -237,7 +237,7 @@ private:
     FilterTable ft;
     PrefetchBuffer pb;
 
-    int sample_rate = 10;
+    int sample_rate = 5;
     int proba_acc_thr1;
     int proba_acc_thr2;
 
@@ -259,9 +259,9 @@ private:
     uint64_t prev_pf_useful = 0;
     uint64_t prev_pf_unused = 0;
 
-    bool use_sampling = true;
-    bool use_jail_table = true;
-    bool use_only_training_on_eog = true;
+    bool use_sampling = false;
+    bool use_jail_table = false;
+    bool use_only_training_on_eog = false;
 
     bool is_debug;
 

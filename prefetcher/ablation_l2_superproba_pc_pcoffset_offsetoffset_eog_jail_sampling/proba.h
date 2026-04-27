@@ -44,10 +44,10 @@ constexpr int KEY_WIDTH = 16;
 constexpr int PROBA_HASH_TYPE = 2;
 constexpr int OFFSET_WIDTH = LOG2_REGION_SIZE - LOG2_BLOCK_SIZE;
 
-constexpr int JT_SIZE = 1024;
+constexpr int JT_SIZE = 4096;
 
-constexpr int ACCURACY_THRESHOLD = 40;
-constexpr int MARGINAL_ACCURACY_THRESHOLD = 60;
+constexpr int ACCURACY_THRESHOLD = 80;
+constexpr int MARGINAL_ACCURACY_THRESHOLD = 80;
 
 constexpr int PF_FILL_L1 = 1;
 constexpr int PF_FILL_L2 = 2;
@@ -237,7 +237,7 @@ private:
     FilterTable ft;
     PrefetchBuffer pb;
 
-    int sample_rate = 10;
+    int sample_rate = 5;
     int proba_acc_thr1;
     int proba_acc_thr2;
 
