@@ -16,6 +16,7 @@ WARMUP_INSTRUCTIONS = 50000000
 SIMULATION_INSTRUCTIONS = 100000000
 
 PREFETCHERS = [
+    'no',
     'l2_sms',
     'l2_bingo',
     'l2_dspatch',
