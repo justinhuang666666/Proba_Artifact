@@ -146,6 +146,7 @@ def run_prefetcher(prefetcher, all_phases, parallelism, dry_run):
             str(WARMUP_INSTRUCTIONS),
             "--simulation_instructions",
             str(SIMULATION_INSTRUCTIONS),
+            "-c",
         ]
 
         for trace in traces:
