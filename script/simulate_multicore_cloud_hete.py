@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-# Launch ChampSim multicore homogeneous simulations locally on a single server
-
 import argparse
 import os
 import subprocess
@@ -10,10 +8,12 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from _CloudSuite_def import CloudSuite_shortcode, CloudSuite_path
+from _CloudSuite_def import CloudSuite_shortcode, CloudSuite_path, cloudsuite_ones
 
 WARMUP_INSTRUCTIONS = 50000000
 SIMULATION_INSTRUCTIONS = 100000000
+
+NUM_CORES = 4
 
 PREFETCHERS = [
     'no',
@@ -30,100 +30,63 @@ def parse_args():
     default_parallelism = os.cpu_count() or 1
 
     parser = argparse.ArgumentParser(
-        description="Run multicore homogeneous ChampSim on SPEC benchmarks locally"
+        description="Run 4-core CloudSuite ChampSim simulations locally"
     )
-    parser.add_argument(
-        "--benchmark",
-        type=str,
-        required=True,
-        help='Benchmark to run ("SPEC_ALL", "SPEC_2017", "SPEC_2006", or part of a benchmark name)',
-    )
-    parser.add_argument(
-        "--num-cores",
-        type=int,
-        required=True,
-        help="Number of homogeneous cores to run",
-    )
+
     parser.add_argument(
         "--parallelism",
         type=int,
         default=default_parallelism,
         help=f"Maximum number of concurrent local simulations (default: {default_parallelism})",
     )
+
     parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print commands without actually running them",
     )
+
     return parser.parse_args()
 
 
-def get_matching_benchmarks(benchmark_arg):
-    if benchmark_arg == "SPEC_ALL":
-        print("Running ALL SPEC 2006 + 2017 benchmarks")
-        matching = SPEC2017_multicore_shortcode.copy()
+def build_cloudsuite_phase_list():
+    """
+    Converts:
 
-    elif benchmark_arg == "SPEC_2017":
-        print("Running SPEC2017 benchmarks")
-        from _SPEC2017_def import spec2017_ones
+        cassandra_phase0_core0
+        cassandra_phase0_core1
+        cassandra_phase0_core2
+        cassandra_phase0_core3
 
-        matching = {}
-        for key in spec2017_ones:
-            if key in SPEC2017_multicore_shortcode:
-                matching[key] = SPEC2017_multicore_shortcode[key]
+    into one 4-core phase:
 
-    elif benchmark_arg == "SPEC_2006":
-        print("Running SPEC2006 benchmarks")
-        from _SPEC2017_def import spec2006_ones
+        cassandra/cassandra_phase0
+    """
+    all_phases = []
 
-        matching = {}
-        for key in spec2006_ones:
-            if key in SPEC2017_multicore_shortcode:
-                matching[key] = SPEC2017_multicore_shortcode[key]
+    for benchmark in cloudsuite_ones:
+        traces = CloudSuite_shortcode[benchmark]
 
-    else:
-        matching = {}
-        for key in SPEC2017_multicore_shortcode:
-            if benchmark_arg in key:
-                matching[key] = SPEC2017_multicore_shortcode[key]
+        if len(traces) % NUM_CORES != 0:
+            print(f"Warning: {benchmark} has {len(traces)} traces, not divisible by {NUM_CORES}")
 
-        if not matching:
-            print("No benchmarks found matching:", benchmark_arg)
-            print("Available benchmarks:", ", ".join(SPEC2017_multicore_shortcode.keys()))
-            print('Use "SPEC_ALL", "SPEC_2017", or "SPEC_2006"')
-            sys.exit(1)
+        for i in range(0, len(traces), NUM_CORES):
+            phase_traces = traces[i:i + NUM_CORES]
 
-        print(f"Found {len(matching)} matching benchmark categories:")
-        for key in matching:
-            print(f"  - {key} ({len(matching[key])} traces)")
+            if len(phase_traces) != NUM_CORES:
+                print(f"Skipping incomplete phase in {benchmark}: {phase_traces}")
+                continue
 
-    print(
-        f"Found {len(matching)} benchmark categories with "
-        f"{sum(len(traces) for traces in matching.values())} total traces"
-    )
-    return matching
+            phase_name = phase_traces[0].replace("_core0.trace.xz", "")
 
+            all_phases.append({
+                "benchmark": benchmark,
+                "phase_name": phase_name,
+                "traces": phase_traces,
+            })
 
-def get_trace_output_name(trace_path):
-    trace_file = os.path.basename(trace_path)
-
-    if trace_file.endswith(".xz"):
-        trace_file = trace_file[:-3]
-    elif trace_file.endswith(".gz"):
-        trace_file = trace_file[:-3]
-
-    parts = trace_file.split(".")
-    if len(parts) > 1:
-        return parts[1]
-    return os.path.splitext(trace_file)[0]
-
-
-def build_benchmark_list(matching_benchmarks):
-    all_benchmarks = []
-    for category, benchmarks in matching_benchmarks.items():
-        for benchmark in benchmarks:
-            all_benchmarks.append((benchmark, category))
-    return all_benchmarks
+    print(f"Found {len(all_phases)} CloudSuite 4-core phases")
+    return all_phases
 
 
 def run_cmd(cmd, stdout=None, stderr=None, dry_run=False):
@@ -133,37 +96,30 @@ def run_cmd(cmd, stdout=None, stderr=None, dry_run=False):
     return subprocess.run(cmd, stdout=stdout, stderr=stderr, check=False)
 
 
-def run_prefetcher(num_cores, prefetcher, all_benchmarks, parallelism, dry_run):
-    binary_path = f"../bin/champsim_{num_cores}core_{prefetcher}"
-
-    # Only folder name changed from prefetcher -> <num_cores>core_<prefetcher>
-    folder_name = f"{num_cores}core_{prefetcher}"
+def run_prefetcher(prefetcher, all_phases, parallelism, dry_run):
+    binary_path = f"../bin/champsim_{NUM_CORES}core_{prefetcher}"
+    folder_name = f"{NUM_CORES}core_{prefetcher}"
 
     if not os.path.exists(binary_path):
         print(f"Error: {binary_path} not found. Please build first.")
         return 1
 
-    categories = {category for _, category in all_benchmarks}
-    for category in categories:
-        os.makedirs(f"results/log/{folder_name}/{category}", exist_ok=True)
-        os.makedirs(f"results/json/{folder_name}/{category}", exist_ok=True)
+    for benchmark in cloudsuite_ones:
+        os.makedirs(f"results/log/{folder_name}/{benchmark}", exist_ok=True)
+        os.makedirs(f"results/json/{folder_name}/{benchmark}", exist_ok=True)
 
-    total_simulations = len(all_benchmarks)
-    if total_simulations == 0:
-        print(f"No benchmarks to run for {folder_name}")
-        return 0
-
+    total_simulations = len(all_phases)
     actual_parallelism = min(parallelism, total_simulations)
 
     print("==================")
     print("Running Simulation")
     print("==================")
     print("Configuration Summary:")
-    print(f"  Cores: {num_cores}")
+    print(f"  Cores: {NUM_CORES}")
     print(f"  Prefetcher: {prefetcher}")
     print(f"  Output folder: {folder_name}")
     print(f"  Binary: {binary_path}")
-    print(f"  Total Benchmarks: {total_simulations}")
+    print(f"  Total phases: {total_simulations}")
     print(f"  Parallelism: {actual_parallelism}")
     print(f"  Dry run: {dry_run}")
     print()
@@ -173,15 +129,15 @@ def run_prefetcher(num_cores, prefetcher, all_benchmarks, parallelism, dry_run):
     failures = []
     start_time = time.time()
 
-    def run_benchmark_local(benchmark_tuple):
+    def run_phase_local(phase):
         nonlocal completed_simulations
 
-        benchmark, category = benchmark_tuple
-        trace_name = get_trace_output_name(benchmark)
-        trace_path = os.path.join(SPEC2017_path, benchmark)
+        benchmark = phase["benchmark"]
+        phase_name = phase["phase_name"]
+        traces = phase["traces"]
 
-        output_path = f"results/log/{folder_name}/{category}/{trace_name}.txt"
-        json_path = f"results/json/{folder_name}/{category}/{trace_name}.json"
+        output_path = f"results/log/{folder_name}/{benchmark}/{phase_name}.txt"
+        json_path = f"results/json/{folder_name}/{benchmark}/{phase_name}.json"
 
         cmd = [
             binary_path,
@@ -192,11 +148,10 @@ def run_prefetcher(num_cores, prefetcher, all_benchmarks, parallelism, dry_run):
             str(SIMULATION_INSTRUCTIONS),
         ]
 
-        # Multicore homogeneous: same trace repeated once per core
-        for _ in range(num_cores):
-            cmd.append(trace_path)
+        for trace in traces:
+            cmd.append(os.path.join(CloudSuite_path, trace))
 
-        print(f"Starting {benchmark} on {num_cores} cores ...")
+        print(f"Starting {benchmark}/{phase_name} ...")
 
         try:
             with open(output_path, "w") as out_file:
@@ -217,23 +172,22 @@ def run_prefetcher(num_cores, prefetcher, all_benchmarks, parallelism, dry_run):
             finished = completed_simulations
 
         if returncode == 0:
-            print(f"Completed {benchmark}. [Progress: {finished} / {total_simulations}]")
+            print(f"Completed {benchmark}/{phase_name}. [Progress: {finished} / {total_simulations}]")
         else:
             print(
-                f"Failed {benchmark} (exit code {returncode}). "
+                f"Failed {benchmark}/{phase_name} (exit code {returncode}). "
                 f"[Progress: {finished} / {total_simulations}]"
             )
 
         return {
             "benchmark": benchmark,
-            "category": category,
-            "trace_name": trace_name,
+            "phase_name": phase_name,
             "returncode": returncode,
             "output_path": output_path,
         }
 
     with ThreadPoolExecutor(max_workers=actual_parallelism) as executor:
-        futures = [executor.submit(run_benchmark_local, item) for item in all_benchmarks]
+        futures = [executor.submit(run_phase_local, phase) for phase in all_phases]
 
         for future in as_completed(futures):
             result = future.result()
@@ -253,7 +207,7 @@ def run_prefetcher(num_cores, prefetcher, all_benchmarks, parallelism, dry_run):
         print("Failed runs:")
         for item in failures:
             print(
-                f"  - {item['benchmark']} -> {item['output_path']} "
+                f"  - {item['benchmark']}/{item['phase_name']} -> {item['output_path']} "
                 f"(exit code {item['returncode']})"
             )
         return 1
@@ -268,22 +222,18 @@ def main():
         print("--parallelism must be >= 1")
         sys.exit(1)
 
-    if args.num_cores <= 0:
-        print("--num-cores must be >= 1")
-        sys.exit(1)
-
-    matching_benchmarks = get_matching_benchmarks(args.benchmark)
-    all_benchmarks = build_benchmark_list(matching_benchmarks)
+    all_phases = build_cloudsuite_phase_list()
 
     overall_rc = 0
+
     for prefetcher in PREFETCHERS:
         rc = run_prefetcher(
-            args.num_cores,
             prefetcher,
-            all_benchmarks,
+            all_phases,
             args.parallelism,
             args.dry_run,
         )
+
         if rc != 0:
             overall_rc = rc
 
