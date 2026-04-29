@@ -352,26 +352,19 @@ def parse_ipc_from_file(filepath, num_cores):
 
 
 def parse_dram_from_file(filepath, num_cores):
-    """
-    DRAM traffic:
-        RQ row-buffer hit + RQ row-buffer miss
-      + WQ row-buffer hit + WQ row-buffer miss
-    """
     roi = get_roi(filepath)
 
     try:
-        dram = roi['DRAM'][0]
+        return sum(
+            get_counter(ch, 'RQ ROW_BUFFER_HIT') +
+            get_counter(ch, 'RQ ROW_BUFFER_MISS') +
+            get_counter(ch, 'WQ ROW_BUFFER_HIT') +
+            get_counter(ch, 'WQ ROW_BUFFER_MISS')
+            for ch in roi['DRAM']
+        )
 
-        dram_read_hit = get_counter(dram, 'RQ ROW_BUFFER_HIT')
-        dram_read_miss = get_counter(dram, 'RQ ROW_BUFFER_MISS')
-        dram_write_hit = get_counter(dram, 'WQ ROW_BUFFER_HIT')
-        dram_write_miss = get_counter(dram, 'WQ ROW_BUFFER_MISS')
-
-        return dram_read_hit + dram_read_miss + dram_write_hit + dram_write_miss
-
-    except (KeyError, IndexError, TypeError, ValueError):
+    except (KeyError, TypeError, ValueError):
         return None
-
 
 # ============================================================
 # DATA GATHERING

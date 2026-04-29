@@ -449,8 +449,8 @@ SPEC2017_multicore_shortcode = {
     "mcf605": 
     [
         "605.mcf_s-1152B.champsimtrace.xz",
-        "605.mcf_s-1536B.champsimtrace.xz",
-        "605.mcf_s-1554B.champsimtrace.xz",
+        # "605.mcf_s-1536B.champsimtrace.xz",
+        # "605.mcf_s-1554B.champsimtrace.xz",
         "605.mcf_s-1644B.champsimtrace.xz",
         "605.mcf_s-472B.champsimtrace.xz",
         "605.mcf_s-484B.champsimtrace.xz",
