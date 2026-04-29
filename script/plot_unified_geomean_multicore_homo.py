@@ -395,8 +395,17 @@ def gather_data(parse_func, matching_benchmarks, num_cores):
                 print(f'Missing directory: {path}')
                 continue
 
+            expected_trace_names = {
+                get_trace_output_name(trace) for trace in matching_benchmarks[benchmark]
+            }
+
             for filename in sorted(os.listdir(path)):
                 if not filename.endswith('.json'):
+                    continue
+
+                trace_name = normalize_trace_name(filename)
+
+                if trace_name not in expected_trace_names:
                     continue
 
                 trace_name = normalize_trace_name(filename)
