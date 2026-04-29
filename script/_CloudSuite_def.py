@@ -1,5 +1,5 @@
 
-CloudSuite_path = "~/CloudSuite_ChampSim/"
+CloudSuite_path = "../traces"
 
 cloudsuite_ones = [
     "cassandra",

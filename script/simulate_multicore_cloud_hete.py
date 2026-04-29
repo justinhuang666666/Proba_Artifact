@@ -10,7 +10,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from _SPEC2017_def import SPEC2017_shortcode, SPEC2017_path
+from _CloudSuite_def import CloudSuite_shortcode, CloudSuite_path
 
 WARMUP_INSTRUCTIONS = 50000000
 SIMULATION_INSTRUCTIONS = 100000000
@@ -61,7 +61,7 @@ def parse_args():
 def get_matching_benchmarks(benchmark_arg):
     if benchmark_arg == "SPEC_ALL":
         print("Running ALL SPEC 2006 + 2017 benchmarks")
-        matching = SPEC2017_shortcode.copy()
+        matching = SPEC2017_multicore_shortcode.copy()
 
     elif benchmark_arg == "SPEC_2017":
         print("Running SPEC2017 benchmarks")
@@ -69,8 +69,8 @@ def get_matching_benchmarks(benchmark_arg):
 
         matching = {}
         for key in spec2017_ones:
-            if key in SPEC2017_shortcode:
-                matching[key] = SPEC2017_shortcode[key]
+            if key in SPEC2017_multicore_shortcode:
+                matching[key] = SPEC2017_multicore_shortcode[key]
 
     elif benchmark_arg == "SPEC_2006":
         print("Running SPEC2006 benchmarks")
@@ -78,18 +78,18 @@ def get_matching_benchmarks(benchmark_arg):
 
         matching = {}
         for key in spec2006_ones:
-            if key in SPEC2017_shortcode:
-                matching[key] = SPEC2017_shortcode[key]
+            if key in SPEC2017_multicore_shortcode:
+                matching[key] = SPEC2017_multicore_shortcode[key]
 
     else:
         matching = {}
-        for key in SPEC2017_shortcode:
+        for key in SPEC2017_multicore_shortcode:
             if benchmark_arg in key:
-                matching[key] = SPEC2017_shortcode[key]
+                matching[key] = SPEC2017_multicore_shortcode[key]
 
         if not matching:
             print("No benchmarks found matching:", benchmark_arg)
-            print("Available benchmarks:", ", ".join(SPEC2017_shortcode.keys()))
+            print("Available benchmarks:", ", ".join(SPEC2017_multicore_shortcode.keys()))
             print('Use "SPEC_ALL", "SPEC_2017", or "SPEC_2006"')
             sys.exit(1)
 

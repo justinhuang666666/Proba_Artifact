@@ -408,3 +408,75 @@ SPEC2017_shortcode = {
         "657.xz_s-56B.champsimtrace.xz"
     ]
 }
+
+
+SPEC2017_multicore_shortcode = {
+    "gcc403": 
+    [
+        "403.gcc-16B.champsimtrace.xz",
+        "403.gcc-17B.champsimtrace.xz",
+        "403.gcc-48B.champsimtrace.xz"
+    ],
+    "mcf429": 
+    [
+        "429.mcf-184B.champsimtrace.xz",
+        "429.mcf-192B.champsimtrace.xz",
+        "429.mcf-217B.champsimtrace.xz",
+        "429.mcf-22B.champsimtrace.xz",
+        "429.mcf-51B.champsimtrace.xz"
+    ],
+    "lbm470": 
+    [
+        "470.lbm-1274B.champsimtrace.xz"
+    ],
+    "omnetpp471": 
+    [
+        "471.omnetpp-188B.champsimtrace.xz"
+    ],
+    "xalancbmk483": 
+    [
+        "483.xalancbmk-127B.champsimtrace.xz",
+        "483.xalancbmk-716B.champsimtrace.xz",
+        "483.xalancbmk-736B.champsimtrace.xz"
+    ],
+    "gcc602": 
+    [
+        "602.gcc_s-1850B.champsimtrace.xz",
+        "602.gcc_s-2226B.champsimtrace.xz",
+        "602.gcc_s-2375B.champsimtrace.xz",
+        "602.gcc_s-734B.champsimtrace.xz"
+    ],
+    "mcf605": 
+    [
+        "605.mcf_s-1152B.champsimtrace.xz",
+        "605.mcf_s-1536B.champsimtrace.xz",
+        "605.mcf_s-1554B.champsimtrace.xz",
+        "605.mcf_s-1644B.champsimtrace.xz",
+        "605.mcf_s-472B.champsimtrace.xz",
+        "605.mcf_s-484B.champsimtrace.xz",
+        "605.mcf_s-665B.champsimtrace.xz",
+        "605.mcf_s-782B.champsimtrace.xz",
+        "605.mcf_s-994B.champsimtrace.xz"
+    ],
+    "lbm619": 
+    [
+        "619.lbm_s-2676B.champsimtrace.xz",
+        "619.lbm_s-2677B.champsimtrace.xz",
+        "619.lbm_s-3766B.champsimtrace.xz",
+        "619.lbm_s-4268B.champsimtrace.xz"
+    ],
+    "omnetpp620": 
+    [
+        "620.omnetpp_s-141B.champsimtrace.xz",
+        "620.omnetpp_s-874B.champsimtrace.xz"
+    ],
+    "xalancbmk623": 
+    [
+        "623.xalancbmk_s-10B.champsimtrace.xz",
+        "623.xalancbmk_s-165B.champsimtrace.xz",
+        "623.xalancbmk_s-202B.champsimtrace.xz",
+        "623.xalancbmk_s-325B.champsimtrace.xz",
+        "623.xalancbmk_s-592B.champsimtrace.xz",
+        "623.xalancbmk_s-700B.champsimtrace.xz"
+    ]
+}
