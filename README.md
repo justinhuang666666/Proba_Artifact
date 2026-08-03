@@ -114,7 +114,7 @@ The script reports:
 - IPC speedup over the baseline.
 - Normalised DRAM traffic.
 - LLC coverage.
-- Overall prefetch accuracy across both L2 and LLC, including L2 prefetches that are used or evicted after reaching the LLC.
+- Overall prefetch accuracy across both L2 and LLC, ensuring a fair comparison with prefetchers that employ multilevel prefetching.
 
 The expected aggregate values are listed in [Expected Results](#expected-results).
 
@@ -167,7 +167,7 @@ After running `no` and `proba`, the aggregate results should be:
 | :--------- | ------: | -----: | -------: | -------: |
 | **proba**  |  1.0588 | 1.0840 |   0.4416 |   0.7912 |
 
-Here, `Accuracy` denotes the overall prefetch accuracy across both L2 and LLC, ensuring a fair comparison with prefetchers that employ multilevel prefetching.
+Here, `Accuracy` denotes the overall prefetch accuracy across both L2 and LLC.
 
 ### All Evaluated Prefetchers
 
