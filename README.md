@@ -153,8 +153,6 @@ python3 scripts/print_results.py \
 | `pmp`         | Merging Similar Patterns for Hardware Prefetching, MICRO 2022. [Paper](https://doi.org/10.1109/MICRO56248.2022.00071)                                                     |
 | `gaze`        | Gaze into the Pattern: Characterizing Spatial Patterns with Internal Temporal Correlations for Hardware Prefetching, HPCA 2025. [Paper](https://arxiv.org/abs/2412.05211) |
 | `proba`       | Proba: A High-Performance, Low-Traffic Probabilistic Spatial Memory Streaming Prefetcher, PACT 2026                                                                       |
-                                                            |
-
 
 The SMS, Bingo, DSPatch, PMP, and Gaze implementations are adapted from the [Gaze artifact](https://github.com/SJTU-Storage-Lab/Gaze-Spatial-Prefetcher). Their evaluated configurations correspond to those reported in Table 3 of the Proba paper.
 
