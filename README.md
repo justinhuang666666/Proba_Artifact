@@ -1,4 +1,4 @@
-# Proba Artifact
+# Proba Artifact (PACT 2026)
 
 This repository contains the artifact for:
 
