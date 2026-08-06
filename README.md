@@ -32,10 +32,10 @@ The artifact has been tested with:
 
 | Component | Version |
 |---|---|
-| Operating system | Fedora 44 |
-| Linux kernel | 7.0.13 |
-| GCC | 16.1.1 |
-| Python | 3.14.6 |
+| Operating system | Ubuntu 22.04.5 LTS |
+| Linux kernel | 5.15.0 |
+| GCC | 11.4.0 |
+| Python | 3.10.12 |
 
 Other recent Linux distributions and C++17-compatible compilers may also work, but have not been tested.
 
