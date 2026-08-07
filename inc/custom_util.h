@@ -12,6 +12,7 @@
 #include <random>
 #include <bitset>
 #include <string>
+#include <cassert>
 
 namespace custom_util {
 
