@@ -12,12 +12,13 @@ import copy
 import json
 import os
 import subprocess
+import shutil
 import sys
 import tempfile
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-import shutil
+
 
 from download_spec2017_traces import DEFAULT_TRACES_DIR
 
@@ -118,20 +119,32 @@ def validate_traces(
 
 def build_champsim(root: Path, config: dict, jobs: int) -> Path:
     executable_name = f"champsim_{uuid.uuid4().hex[:8]}"
+
     build_config = copy.deepcopy(config)
     build_config["executable_name"] = executable_name
 
+    # ------------------------------------------------------------------
+    # Require GCC/G++ 11
+    # ------------------------------------------------------------------
     gcc = shutil.which("gcc-11")
     gxx = shutil.which("g++-11")
 
     if gcc is None or gxx is None:
         print(
-            "error: GCC 11 is required but gcc-11/g++-11 were not found.\n"
-            "Run ./scripts/setup.sh first.",
+            "error: GCC/G++ 11 is required to build this artifact.\n"
+            "Could not find gcc-11 and/or g++-11 in PATH.\n"
+            "\n"
+            "Ubuntu/Debian:\n"
+            "  sudo apt update\n"
+            "  sudo apt install gcc-11 g++-11\n"
+            "\n"
+            "macOS with Homebrew:\n"
+            "  brew install gcc@11",
             file=sys.stderr,
         )
         raise SystemExit(1)
 
+    # Force all child build processes to use GCC/G++ 11.
     env = os.environ.copy()
     env["CC"] = gcc
     env["CXX"] = gxx
@@ -139,6 +152,9 @@ def build_champsim(root: Path, config: dict, jobs: int) -> Path:
     print(f"C compiler     : {gcc}")
     print(f"C++ compiler   : {gxx}")
 
+    # ------------------------------------------------------------------
+    # Create temporary ChampSim configuration
+    # ------------------------------------------------------------------
     fd, temporary_path = tempfile.mkstemp(
         suffix=".json",
         prefix="run_exp_cfg_",
@@ -148,7 +164,11 @@ def build_champsim(root: Path, config: dict, jobs: int) -> Path:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             json.dump(build_config, fh, indent=4)
 
+        # --------------------------------------------------------------
+        # Configure
+        # --------------------------------------------------------------
         print(f"Configuring with {temporary_path}...")
+
         result = subprocess.run(
             ["./config.sh", temporary_path],
             cwd=root,
@@ -157,10 +177,20 @@ def build_champsim(root: Path, config: dict, jobs: int) -> Path:
         )
 
         if result.returncode != 0:
-            print("error: configuration failed", file=sys.stderr)
+            print(
+                "error: configuration failed",
+                file=sys.stderr,
+            )
             raise SystemExit(1)
 
-        print(f"Building {executable_name} with make -j {jobs}...")
+        # --------------------------------------------------------------
+        # Build
+        # --------------------------------------------------------------
+        print(
+            f"Building {executable_name} "
+            f"with GCC/G++ 11 and make -j {jobs}..."
+        )
+
         result = subprocess.run(
             ["make", "-j", str(jobs)],
             cwd=root,
@@ -169,7 +199,10 @@ def build_champsim(root: Path, config: dict, jobs: int) -> Path:
         )
 
         if result.returncode != 0:
-            print("error: build failed", file=sys.stderr)
+            print(
+                "error: build failed",
+                file=sys.stderr,
+            )
             raise SystemExit(1)
 
     finally:
@@ -178,14 +211,19 @@ def build_champsim(root: Path, config: dict, jobs: int) -> Path:
         except OSError:
             pass
 
+    # ------------------------------------------------------------------
+    # Verify generated binary
+    # ------------------------------------------------------------------
     binary = root / "bin" / executable_name
 
     if not binary.is_file():
-        print(f"error: binary not found: {binary}", file=sys.stderr)
+        print(
+            f"error: binary not found: {binary}",
+            file=sys.stderr,
+        )
         raise SystemExit(1)
 
     return binary
-
 
 def run_one(
     binary: Path,
