@@ -20,8 +20,8 @@ from pathlib import Path
 
 from download_spec2017_traces import DEFAULT_TRACES_DIR
 
-WARMUP_INSTRUCTIONS = 50_000_000
-SIMULATION_INSTRUCTIONS = 100_000_000
+WARMUP_INSTRUCTIONS = 200_000_000
+SIMULATION_INSTRUCTIONS = 200_000_000
 SUITE_NAME = "spec2017"
 BASE_CONFIG_REL = Path("params") / "baseline.json"
 SUITE_JSON_REL = Path("scripts") / "suites" / "spec2017.json"
