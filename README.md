@@ -22,7 +22,7 @@ The repository includes:
 The artifact requires:
 
 - Python 3.9 or later
-- A C++ compiler with C++17 support
+- GCC/G++ 11
 - GNU Make
 - Git
 
@@ -31,29 +31,26 @@ The artifact requires:
 The artifact has been tested with:
 
 | Component | Version |
-|---|---|
+| --- | --- |
 | Operating system | Ubuntu 22.04.5 LTS |
 | Linux kernel | 5.15.0 |
-| GCC | 11.4.0 |
+| GCC/G++ | 11.4.0 |
 | Python | 3.10.12 |
 
-Other recent Linux distributions and C++17-compatible compilers may also work, but have not been tested.
+GCC/G++ 11 is required to compile the artifact. Newer compiler
+versions are not currently supported.
+
+The required compiler and other dependencies can be installed
+automatically using the setup script below.
 
 ## Setup
 
-Clone the repository and initialise its submodules:
+Clone the repository and initialise the artifact:
 
 ```bash
 git clone https://github.com/justinhuang666666/Proba_Artifact.git
 cd Proba_Artifact
-git submodule update --init --recursive
-```
-
-Build the ChampSim dependencies:
-
-```bash
-vcpkg/bootstrap-vcpkg.sh
-vcpkg/vcpkg install
+./scripts/setup.sh
 ```
 
 Download the SPECspeed 2017 traces:
