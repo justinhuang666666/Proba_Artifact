@@ -3,19 +3,37 @@ set -euo pipefail
 
 echo "Installing Proba artifact dependencies..."
 
+# Prefer sudo when available; fall back to direct apt-get as root (e.g. containers).
+run_as_root() {
+    if [[ "$(id -u)" -eq 0 ]]; then
+        "$@"
+    elif command -v sudo >/dev/null 2>&1; then
+        sudo "$@"
+    else
+        echo "error: root privileges required (install sudo or run as root)."
+        exit 1
+    fi
+}
+
 if [[ "$(uname -s)" == "Linux" ]]; then
     if ! command -v apt-get >/dev/null 2>&1; then
         echo "error: automatic compiler installation currently supports Ubuntu/Debian only."
         exit 1
     fi
 
-    sudo apt-get update
-    sudo apt-get install -y \
+    run_as_root apt-get update
+    run_as_root apt-get install -y \
         gcc-11 \
         g++-11 \
         make \
         git \
-        python3
+        python3 \
+        pkg-config \
+        curl \
+        zip \
+        unzip \
+        tar \
+        ca-certificates
 
 elif [[ "$(uname -s)" == "Darwin" ]]; then
     if ! command -v brew >/dev/null 2>&1; then
@@ -24,7 +42,7 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
         exit 1
     fi
 
-    brew install gcc@11
+    brew install gcc@11 pkg-config
 
 else
     echo "error: unsupported operating system."
