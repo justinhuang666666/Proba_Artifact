@@ -83,20 +83,12 @@ python3 scripts/run_experiments.py proba -j N
 
 Each configuration takes approximately one hour on an Intel Xeon Platinum 8168 system using 40 cores. Systems with fewer cores should use a smaller value of `N`, with a corresponding increase in total execution time.
 
-Results are written to:
+Each simulation produces a text file containing the simulator log and a JSON file containing the statistics used by the result-reporting script:
 
 ```text
-results/spec2017/<prefetcher>/<benchmark>/
+results/spec2017/<prefetcher>/<benchmark>/<trace>.txt
+results/spec2017/<prefetcher>/<benchmark>/<trace>.json
 ```
-
-Each simulation produces:
-
-```text
-<trace>.txt
-<trace>.json
-```
-
-The text file contains the simulator log, while the JSON file contains the statistics used by the result-reporting script.
 
 ### Print the Main Results
 
