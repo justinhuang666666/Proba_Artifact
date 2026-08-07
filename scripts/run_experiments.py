@@ -17,6 +17,7 @@ import tempfile
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+import shutil
 
 from download_spec2017_traces import DEFAULT_TRACES_DIR
 
@@ -115,11 +116,28 @@ def validate_traces(
 
     return resolved
 
-
 def build_champsim(root: Path, config: dict, jobs: int) -> Path:
     executable_name = f"champsim_{uuid.uuid4().hex[:8]}"
     build_config = copy.deepcopy(config)
     build_config["executable_name"] = executable_name
+
+    gcc = shutil.which("gcc-11")
+    gxx = shutil.which("g++-11")
+
+    if gcc is None or gxx is None:
+        print(
+            "error: GCC 11 is required but gcc-11/g++-11 were not found.\n"
+            "Run ./scripts/setup.sh first.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+
+    env = os.environ.copy()
+    env["CC"] = gcc
+    env["CXX"] = gxx
+
+    print(f"C compiler     : {gcc}")
+    print(f"C++ compiler   : {gxx}")
 
     fd, temporary_path = tempfile.mkstemp(
         suffix=".json",
@@ -134,8 +152,10 @@ def build_champsim(root: Path, config: dict, jobs: int) -> Path:
         result = subprocess.run(
             ["./config.sh", temporary_path],
             cwd=root,
+            env=env,
             check=False,
         )
+
         if result.returncode != 0:
             print("error: configuration failed", file=sys.stderr)
             raise SystemExit(1)
@@ -144,11 +164,14 @@ def build_champsim(root: Path, config: dict, jobs: int) -> Path:
         result = subprocess.run(
             ["make", "-j", str(jobs)],
             cwd=root,
+            env=env,
             check=False,
         )
+
         if result.returncode != 0:
             print("error: build failed", file=sys.stderr)
             raise SystemExit(1)
+
     finally:
         try:
             os.unlink(temporary_path)
@@ -156,6 +179,7 @@ def build_champsim(root: Path, config: dict, jobs: int) -> Path:
             pass
 
     binary = root / "bin" / executable_name
+
     if not binary.is_file():
         print(f"error: binary not found: {binary}", file=sys.stderr)
         raise SystemExit(1)
