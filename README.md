@@ -81,7 +81,7 @@ python3 scripts/run_experiments.py no -j N
 python3 scripts/run_experiments.py proba -j N
 ```
 
-Each configuration takes approximately one hour on an Intel Xeon Platinum 8168 system using 40 cores. Systems with fewer cores should use a smaller value of `N`, with a corresponding increase in total execution time.
+Each configuration takes approximately 3 hours on an Intel Xeon Platinum 8168 system using 40 cores. Systems with fewer cores should use a smaller value of `N`, with a corresponding increase in total execution time.
 
 Each simulation produces a text file containing the simulator log and a JSON file containing the statistics used by the result-reporting script:
 
@@ -117,7 +117,7 @@ for pref in no sms bingo dspatch pmp gaze proba; do
 done
 ```
 
-With `N=40`, the complete experiment takes approximately seven hours on an Intel Xeon Platinum 8168 system.
+With `N=40`, the complete experiment takes approximately 21 hours on an Intel Xeon Platinum 8168 system.
 
 After all simulations complete, print the comparison tables with:
 
@@ -148,13 +148,14 @@ The SMS, Bingo, DSPatch, PMP, and Gaze implementations are adapted from the [Gaz
 ## Expected Results
 
 Small numerical differences may occur because of compiler, operating-system, or host-platform differences. However, the overall trends and conclusions should remain consistent.
+
 ### Proba Versus the Baseline
 
 After running `no` and `proba`, the aggregate results should be:
 
 | Prefetcher | Speedup |   DRAM | LLC cov. | Accuracy |
 | :--------- | ------: | -----: | -------: | -------: |
-| **proba**  |  1.0588 | 1.0840 |   0.4416 |   0.7912 |
+| **proba**  |  1.0659 | 1.0845 |   0.5088 |   0.8068 |
 
 Here, `Accuracy` denotes the overall prefetch accuracy across both L2 and LLC.
 
@@ -164,37 +165,37 @@ After running all configurations, the aggregate results should be:
 
 | Prefetcher |    Speedup |       DRAM |   LLC cov. |   Accuracy |
 | :--------- | ---------: | ---------: | ---------: | ---------: |
-| sms        |     1.0413 |     1.1500 |     0.4584 |     0.7645 |
-| bingo      |     1.0392 |     1.1902 |     0.4796 |     0.7494 |
-| dspatch    |     1.0487 |     1.2763 |     0.3971 |     0.6856 |
-| pmp        |     1.0549 |     1.3223 |     0.5697 |     0.6666 |
-| gaze       |     1.0493 |     1.1413 |     0.5332 |     0.6288 |
-| **proba**  | **1.0588** | **1.0840** | **0.4416** | **0.7912** |
+| sms        |     1.0456 |     1.1316 |     0.4622 |     0.7699 |
+| bingo      |     1.0446 |     1.1638 |     0.4808 |     0.7516 |
+| dspatch    |     1.0544 |     1.2772 |     0.4247 |     0.7042 |
+| pmp        |     1.0559 |     1.2806 |     0.5751 |     0.6629 |
+| gaze       |     1.0497 |     1.1236 |     0.5372 |     0.6285 |
+| **proba**  | **1.0659** | **1.0845** | **0.5088** | **0.8068** |
 
 The expected per-benchmark speedups are:
 
 | Benchmark    |    sms |  bingo | dspatch |    pmp |   gaze |  proba |
 | :----------- | -----: | -----: | ------: | -----: | -----: | -----: |
-| bwaves603    | 1.1167 | 1.1168 |  1.0723 | 1.1169 | 1.1130 | 1.1153 |
-| cactuBSSN607 | 1.0128 | 1.0001 |  1.5364 | 1.3244 | 1.0374 | 1.2424 |
-| cam4627      | 0.9991 | 0.9985 |  1.0051 | 0.9927 | 1.0069 | 1.0049 |
-| deepsjeng631 | 1.0008 | 1.0014 |  0.9986 | 1.0002 | 0.9990 | 0.9996 |
-| exchange2648 | 1.0000 | 1.0000 |  1.0000 | 1.0000 | 1.0002 | 1.0000 |
-| fotonik3d649 | 1.2721 | 1.2919 |  1.1755 | 1.2611 | 1.3393 | 1.2777 |
-| gcc602       | 1.1381 | 1.1458 |  1.1193 | 1.1305 | 1.1165 | 1.1432 |
-| imagick638   | 1.0100 | 1.0102 |  1.0037 | 1.0102 | 1.0099 | 1.0001 |
-| lbm619       | 1.0578 | 1.0583 |  1.0477 | 1.0588 | 1.0630 | 1.0576 |
-| leela641     | 1.0006 | 1.0006 |  1.0007 | 1.0007 | 1.0005 | 1.0000 |
-| mcf605       | 0.9868 | 0.9484 |  0.9559 | 1.0016 | 0.9785 | 1.0367 |
-| nab644       | 1.0550 | 1.0617 |  1.0617 | 1.0615 | 1.0575 | 1.0543 |
-| omnetpp620   | 0.9816 | 0.9784 |  0.9468 | 0.8938 | 0.9586 | 0.9920 |
-| perlbench600 | 1.0017 | 1.0024 |  1.0008 | 0.9960 | 1.0004 | 1.0005 |
-| pop2628      | 1.0220 | 1.0220 |  1.0285 | 1.0458 | 1.0549 | 1.0368 |
-| roms654      | 1.1458 | 1.1333 |  1.0715 | 1.1597 | 1.1582 | 1.1285 |
-| wrf621       | 1.0717 | 1.0804 |  1.0707 | 1.0886 | 1.1008 | 1.0923 |
-| x264625      | 1.0188 | 1.0204 |  1.0206 | 1.0258 | 1.0270 | 1.0142 |
-| xalancbmk623 | 1.0361 | 1.0315 |  1.0345 | 1.0323 | 1.0341 | 1.0464 |
-| xz657        | 0.9469 | 0.9377 |  0.9437 | 0.9822 | 0.9910 | 0.9907 |
+| bwaves603    | 1.1170 | 1.1170 |  1.0732 | 1.1174 | 1.1113 | 1.1153 |
+| cactuBSSN607 | 1.0078 | 1.0043 |  1.6025 | 1.2635 | 1.0160 | 1.2684 |
+| cam4627      | 1.0004 | 1.0009 |  1.0059 | 0.9906 | 1.0058 | 1.0076 |
+| deepsjeng631 | 1.0038 | 1.0058 |  1.0063 | 1.0068 | 0.9998 | 1.0003 |
+| exchange2648 | 1.0000 | 1.0000 |  1.0000 | 1.0000 | 1.0001 | 1.0000 |
+| fotonik3d649 | 1.2646 | 1.2760 |  1.1625 | 1.2431 | 1.3350 | 1.2707 |
+| gcc602       | 1.1562 | 1.1694 |  1.1453 | 1.1619 | 1.1387 | 1.1646 |
+| imagick638   | 1.0052 | 1.0052 |  1.0028 | 1.0052 | 1.0049 | 1.0001 |
+| lbm619       | 1.0561 | 1.0566 |  1.0460 | 1.0572 | 1.0612 | 1.0560 |
+| leela641     | 0.9981 | 0.9984 |  0.9918 | 0.9935 | 0.9975 | 1.0009 |
+| mcf605       | 0.9808 | 0.9548 |  0.9553 | 0.9919 | 0.9539 | 1.0329 |
+| nab644       | 1.0550 | 1.0615 |  1.0596 | 1.0618 | 1.0571 | 1.0569 |
+| omnetpp620   | 0.9839 | 0.9797 |  0.9448 | 0.8884 | 0.9603 | 0.9947 |
+| perlbench600 | 0.9991 | 0.9998 |  0.9975 | 0.9866 | 0.9953 | 0.9987 |
+| pop2628      | 1.0224 | 1.0315 |  1.0492 | 1.0674 | 1.0645 | 1.0693 |
+| roms654      | 1.2195 | 1.1939 |  1.1003 | 1.2264 | 1.2144 | 1.1914 |
+| wrf621       | 1.0931 | 1.1037 |  1.0755 | 1.1145 | 1.1157 | 1.1203 |
+| x264625      | 1.0092 | 1.0104 |  1.0153 | 1.0144 | 1.0164 | 1.0103 |
+| xalancbmk623 | 1.0221 | 1.0148 |  1.0226 | 1.0155 | 1.0195 | 1.0282 |
+| xz657        | 0.9739 | 0.9675 |  0.9730 | 0.9956 | 0.9974 | 0.9992 |
 
 These experiments reproduce the SPECspeed 2017 results reported in Figures 12, 13, and 14 of the paper.
 
