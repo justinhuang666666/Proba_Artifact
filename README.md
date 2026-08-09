@@ -1,5 +1,5 @@
 # Proba Artifact (PACT 2026)
-
+[![DOI](https://zenodo.org/badge/1319995761.svg)](https://doi.org/10.5281/zenodo.21859952)
 This repository contains the artifact for:
 
 > **Proba: A High-Performance, Low-Traffic Probabilistic Spatial Memory Streaming Prefetcher**  
