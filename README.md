@@ -200,6 +200,17 @@ The expected per-benchmark speedups are:
 
 These experiments reproduce the SPECspeed 2017 results reported in Figures 12, 13, and 14 of the paper.
 
+## Troubleshooting
+
+### GCC/G++ version
+
+The artifact was originally evaluated using GCC/G++ 11.4.0. On some systems, the default `gcc` and `g++` executables may point to a different compiler version. If the build fails because of compiler compatibility, or if you want to reproduce the validated software environment, use GCC/G++ 11 explicitly through the `CC` and `CXX` environment variables:
+
+```bash
+export CC=gcc-11
+export CXX=g++-11
+```
+Then rerun the setup or experiment command.
 ## License
 
 This artifact is licensed under the [Apache License, Version 2.0](LICENSE).
