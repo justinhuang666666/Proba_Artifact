@@ -123,34 +123,31 @@ def build_champsim(root: Path, config: dict, jobs: int) -> Path:
     build_config = copy.deepcopy(config)
     build_config["executable_name"] = executable_name
 
-    # ------------------------------------------------------------------
-    # Require GCC/G++ 11
-    # ------------------------------------------------------------------
-    gcc = shutil.which("gcc-11")
-    gxx = shutil.which("g++-11")
+    env = os.environ.copy()
 
-    if gcc is None or gxx is None:
+    cc = env.get("CC")
+    cxx = env.get("CXX")
+
+    if not cc:
+        cc = shutil.which("gcc") or shutil.which("cc")
+
+    if not cxx:
+        cxx = shutil.which("g++") or shutil.which("c++")
+
+    if cc is None or cxx is None:
         print(
-            "error: GCC/G++ 11 is required to build this artifact.\n"
-            "Could not find gcc-11 and/or g++-11 in PATH.\n"
-            "\n"
-            "Ubuntu/Debian:\n"
-            "  sudo apt update\n"
-            "  sudo apt install gcc-11 g++-11\n"
-            "\n"
-            "macOS with Homebrew:\n"
-            "  brew install gcc@11",
+            "error: no suitable C/C++ compiler found.\n"
+            "Install a compiler or specify one explicitly, for example:\n"
+            "  CC=gcc CXX=g++ python3 scripts/run_experiments.py ...",
             file=sys.stderr,
         )
         raise SystemExit(1)
 
-    # Force all child build processes to use GCC/G++ 11.
-    env = os.environ.copy()
-    env["CC"] = gcc
-    env["CXX"] = gxx
+    env["CC"] = cc
+    env["CXX"] = cxx
 
-    print(f"C compiler     : {gcc}")
-    print(f"C++ compiler   : {gxx}")
+    print(f"C compiler     : {cc}")
+    print(f"C++ compiler   : {cxx}")
 
     # ------------------------------------------------------------------
     # Create temporary ChampSim configuration
@@ -188,7 +185,7 @@ def build_champsim(root: Path, config: dict, jobs: int) -> Path:
         # --------------------------------------------------------------
         print(
             f"Building {executable_name} "
-            f"with GCC/G++ 11 and make -j {jobs}..."
+            f"with CC={cc}, CXX={cxx}, make -j {jobs}..."
         )
 
         result = subprocess.run(
